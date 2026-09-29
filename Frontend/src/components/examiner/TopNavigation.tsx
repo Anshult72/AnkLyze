@@ -41,13 +41,13 @@ export default function TopNavigation({ activeTab = "dashboard" }: TopNavigation
             </button>
 
             <Link href="/examiner/dashboard" className="flex items-center space-x-2.5 group">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm tracking-wider shadow-xs">
-                PE
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xs tracking-wider shadow-xs">
+                AK
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-sm sm:text-base tracking-tight text-slate-900 leading-tight">
-                    PaperEval
+                    ANKLYZE
                   </span>
                   <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-blue-50 text-blue-600 border border-blue-200 tracking-wider uppercase font-mono">
                     MPONLINE

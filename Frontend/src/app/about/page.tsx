@@ -5,8 +5,8 @@ import MarketingFooter from '@/components/marketing/MarketingFooter';
 import { ArrowRight, ArrowUpRight, Shield, Award, Users, CheckCircle } from 'lucide-react';
 
 export const metadata = {
-  title: "About PaperEval | Examination Technology & Academic Integrity",
-  description: "Learn how PaperEval combines vision AI with human educator oversight to eliminate grading delays and ensure academic defensibility.",
+  title: "About ANKLYZE | Examination Technology & Academic Integrity",
+  description: "Learn how ANKLYZE combines vision AI with human educator oversight to eliminate grading delays and ensure academic defensibility.",
 };
 
 export default function AboutPage() {
@@ -37,7 +37,7 @@ export default function AboutPage() {
           </h1>
 
           <p className="text-base sm:text-xl text-[#4B5563] max-w-2xl mx-auto leading-relaxed mt-6">
-            Higher education in India conducts hundreds of millions of handwritten evaluations every semester. PaperEval was founded to protect faculty from valuation fatigue while giving students transparent, defensible results.
+            Higher education in India conducts hundreds of millions of handwritten evaluations every semester. ANKLYZE was founded to protect faculty from valuation fatigue while giving students transparent, defensible results.
           </p>
         </section>
 

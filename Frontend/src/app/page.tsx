@@ -7,7 +7,7 @@ import FeatureSuiteSection from '@/components/marketing/FeatureSuiteSection';
 import MarketingFooter from '@/components/marketing/MarketingFooter';
 
 export const metadata = {
-  title: "PaperEval | Automated Evaluation & AI Paper Correction",
+  title: "ANKLYZE | Analyse the marks, not just the paper",
   description: "Human-in-the-loop AI grading for handwritten answer sheets, university examinations, and institutional academic rigor.",
 };
 

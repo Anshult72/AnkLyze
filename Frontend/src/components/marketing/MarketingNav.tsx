@@ -15,12 +15,12 @@ export default function MarketingNav() {
         
         {/* LOGO */}
         <Link href="/" className="flex items-center space-x-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] flex items-center justify-center text-white shadow-xs">
-            <span className="font-bold text-sm tracking-wider">AI</span>
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs">
+            <span className="font-bold text-xs tracking-wider">AK</span>
           </div>
           <div className="flex items-baseline">
             <span className="text-xl font-bold tracking-tight text-[#111827]">
-              Paper<span className="text-[#2563EB]">Eval</span>
+              ANK<span className="text-[#2563EB]">LYZE</span>
             </span>
             <span className="ml-1.5 text-[10px] font-mono uppercase px-1.5 py-0.2 rounded bg-blue-50 text-[#2563EB] border border-blue-200 hidden sm:inline-block font-semibold">
               MPOnline

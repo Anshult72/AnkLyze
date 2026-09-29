@@ -5,7 +5,7 @@ import MarketingFooter from '@/components/marketing/MarketingFooter';
 import { ArrowRight, ArrowUpRight, Check, Eye, PenTool, Sparkles, Binary, ShieldCheck, Cpu } from 'lucide-react';
 
 export const metadata = {
-  title: "Handwritten Answer Sheet Grading | PaperEval",
+  title: "Handwritten Answer Sheet Grading | ANKLYZE",
   description: "Advanced vision AI for cursive handwriting recognition, diagram parsing, and mathematical equation evaluation on handwritten exam sheets.",
 };
 
@@ -37,7 +37,7 @@ export default function HandwrittenAnswerSheetGradingPage() {
           </h1>
 
           <p className="text-base sm:text-xl text-[#4B5563] max-w-2xl mx-auto leading-relaxed mt-6">
-            Trained on millions of authentic handwritten student scripts. PaperEval handles non-standard handwriting, struck-out working notes, freehand sketches, and dual-language submissions with high fidelity.
+            Trained on millions of authentic handwritten student scripts. ANKLYZE handles non-standard handwriting, struck-out working notes, freehand sketches, and dual-language submissions with high fidelity.
           </p>
 
           <div className="mt-8 flex flex-row items-center justify-center gap-3">

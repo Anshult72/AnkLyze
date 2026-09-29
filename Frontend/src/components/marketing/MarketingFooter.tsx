@@ -49,11 +49,11 @@ export default function MarketingFooter() {
           <div className="lg:col-span-5 space-y-6">
             <div className="inline-block bg-white p-2.5 rounded-xl shadow-sm border border-slate-200">
               <div className="flex items-center gap-2.5 px-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-base shadow-sm">
-                  PE
+                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                  AK
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-bold text-slate-900 tracking-tight text-base leading-none">PaperEval</span>
+                  <span className="font-bold text-slate-900 tracking-tight text-base leading-none">ANKLYZE</span>
                   <span className="text-[10px] uppercase font-semibold tracking-wider text-blue-600 mt-0.5">MPOnline EdTech</span>
                 </div>
               </div>
@@ -173,7 +173,7 @@ export default function MarketingFooter() {
 
         {/* Bottom Legal Bar */}
         <div className="pt-8 border-t border-slate-800/80 flex flex-col md:flex-row items-center justify-between text-xs text-slate-500 gap-4">
-          <p>© 2026 PaperEval • MPOnline Examination System. All rights reserved.</p>
+          <p>© 2026 ANKLYZE • Analyse the marks, not just the paper • MPOnline Examination System.</p>
           <div className="flex flex-wrap items-center gap-6">
             <Link href="/privacy" className="hover:text-slate-400 transition-colors">
               Privacy

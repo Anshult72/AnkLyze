@@ -43,7 +43,7 @@ export default function HeroSection() {
         <p className="text-base sm:text-lg text-[#4B5563] max-w-2xl mx-auto leading-relaxed mt-6">
           Turn handwritten answers into thoughtful, rubric-linked feedback.
           <br className="hidden sm:inline" />
-          {" "}PaperEval takes the first pass. You hold the final pen.
+          {" "}ANKLYZE takes the first pass. You hold the final pen.
         </p>
 
         {/* CTA BUTTONS */}

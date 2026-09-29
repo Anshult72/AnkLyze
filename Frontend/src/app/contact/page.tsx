@@ -93,7 +93,7 @@ export default function ContactPage() {
               <div className="p-6 rounded-2xl bg-gray-50 border border-gray-200 space-y-3 text-sm text-gray-600">
                 <div className="flex items-center gap-2.5">
                   <Mail className="w-4 h-4 text-blue-600" />
-                  <span>institutional@papereval.mponline.gov.in</span>
+                  <span>institutional@anklyze.mponline.gov.in</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Phone className="w-4 h-4 text-blue-600" />

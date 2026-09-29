@@ -5,7 +5,7 @@ import MarketingFooter from '@/components/marketing/MarketingFooter';
 import { ArrowRight, Check, Sparkles, HelpCircle } from 'lucide-react';
 
 export const metadata = {
-  title: "Institutional Pricing & Plans | PaperEval",
+  title: "Institutional Pricing & Plans | ANKLYZE",
   description: "Transparent script-based licensing tiers for colleges, universities, and state examination boards.",
 };
 
@@ -146,9 +146,9 @@ export default function PricingPage() {
 
           <div className="space-y-4">
             <div className="p-6 rounded-2xl bg-white border border-gray-200">
-              <h4 className="font-serif text-base font-bold text-gray-900">Does PaperEval replace university faculty?</h4>
+              <h4 className="font-serif text-base font-bold text-gray-900">Does ANKLYZE replace university faculty?</h4>
               <p className="text-xs sm:text-sm text-gray-600 mt-2 leading-relaxed">
-                Strictly no. PaperEval operates on an educator-in-the-loop mandate. AI performs the labor-intensive initial pass (OCR transcription, diagram validation, step-wise rubric alignment), drafting provisional scores. Faculty examiners retain 100% legal signing authority and can modify any score in 1 click.
+                Strictly no. ANKLYZE operates on an educator-in-the-loop mandate. AI performs the labor-intensive initial pass (OCR transcription, diagram validation, step-wise rubric alignment), drafting provisional scores. Faculty examiners retain 100% legal signing authority and can modify any score in 1 click.
               </p>
             </div>
 

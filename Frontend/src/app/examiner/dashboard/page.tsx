@@ -82,9 +82,9 @@ export default function ExaminerDashboardPage() {
       <footer className="mt-auto border-t border-slate-200/90 bg-white py-4 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="font-bold text-slate-900">PaperEval</span>
+            <span className="font-bold text-slate-900 tracking-tight">ANKLYZE</span>
             <span>•</span>
-            <span>MPOnline Digital Examination Evaluation System</span>
+            <span>Analyse the marks, not just the paper</span>
             <span>•</span>
             <Link href="/" className="text-blue-600 hover:underline font-semibold">
               Public Website ↗

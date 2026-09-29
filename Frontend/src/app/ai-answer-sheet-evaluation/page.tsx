@@ -5,7 +5,7 @@ import MarketingFooter from '@/components/marketing/MarketingFooter';
 import { ArrowRight, ArrowUpRight, CheckCircle2, FileText, Check, Shield, Layers, BrainCircuit, Sparkles, Scale } from 'lucide-react';
 
 export const metadata = {
-  title: "AI Answer Sheet Evaluation | PaperEval",
+  title: "AI Answer Sheet Evaluation | ANKLYZE",
   description: "Automated preliminary grading for handwritten university exam sheets with rubric linkage and 100% faculty approval gate.",
 };
 
@@ -38,7 +38,7 @@ export default function AIAnswerSheetEvaluationPage() {
           </h1>
 
           <p className="text-base sm:text-xl text-[#4B5563] max-w-2xl mx-auto leading-relaxed mt-6">
-            PaperEval ingests high-resolution scans of student booklets, isolates question boundaries, matches steps against the marking scheme, and drafts provisional marks for educator sign-off.
+            ANKLYZE ingests high-resolution scans of student booklets, isolates question boundaries, matches steps against the marking scheme, and drafts provisional marks for educator sign-off.
           </p>
 
           <div className="mt-8 flex flex-row items-center justify-center gap-3">
@@ -83,7 +83,7 @@ export default function AIAnswerSheetEvaluationPage() {
             </div>
 
             <div className="space-y-4 md:pl-2">
-              <span className="text-xs font-mono uppercase font-bold text-blue-600 tracking-wider">PaperEval Assisted Workflow</span>
+              <span className="text-xs font-mono uppercase font-bold text-blue-600 tracking-wider">ANKLYZE Assisted Workflow</span>
               <h3 className="font-serif text-2xl font-bold text-blue-950">AI-Drafted, Educator-Verified</h3>
               <ul className="space-y-3 text-sm text-gray-700">
                 <li className="flex items-start gap-2">
@@ -110,7 +110,7 @@ export default function AIAnswerSheetEvaluationPage() {
               Engineered for multi-format examinations
             </h2>
             <p className="text-base text-gray-600 mt-3">
-              From engineering derivations and medical case studies to humanities essays, PaperEval adapts to institutional marking schemes.
+              From engineering derivations and medical case studies to humanities essays, ANKLYZE adapts to institutional marking schemes.
             </p>
           </div>
 

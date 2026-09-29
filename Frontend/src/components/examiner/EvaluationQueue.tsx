@@ -255,14 +255,24 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
 
                   {/* Action */}
                   <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                    <Link
-                      href={`/examiner/evaluate/${script.scriptId}`}
-                      className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
-                      id={`btn-evaluate-${script.scriptId}`}
-                    >
-                      <span>Evaluate</span>
-                      <ArrowUpRight className="w-3 h-3" />
-                    </Link>
+                    {(() => {
+                      const cleanId = script.scriptId.replace(/^SCRIPT\s+/, "");
+                      const isReview = script.status === "Needs Review" || script.status === "Attention";
+                      return (
+                        <Link
+                          href={`/examiner/evaluate/${cleanId}`}
+                          className={`inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-2xs transition-colors ${
+                            isReview
+                              ? "bg-amber-600 hover:bg-amber-700 text-white"
+                              : "bg-blue-600 hover:bg-blue-700 text-white"
+                          }`}
+                          id={`btn-evaluate-${cleanId}`}
+                        >
+                          <span>{isReview ? "Review" : "Evaluate"}</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </Link>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))

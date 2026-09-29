@@ -60,7 +60,7 @@ export default function HumanInLoopSection() {
           </div>
           <div className="lg:col-span-5 space-y-2">
             <p className="text-base sm:text-lg text-[#4B5563] leading-relaxed">
-              Grading automation is only meaningful when it remains fully explainable, secure, and defensible. PaperEval keeps academic authority firmly in the hands of faculty.
+              Grading automation is only meaningful when it remains fully explainable, secure, and defensible. ANKLYZE keeps academic authority firmly in the hands of faculty.
             </p>
             <div className="flex items-center space-x-2 text-xs font-mono font-semibold uppercase tracking-wider text-[#16A34A]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />

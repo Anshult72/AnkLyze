@@ -11,6 +11,7 @@ import {
   EVALUATION_DATASET_MOCK,
   AVAILABLE_QUESTIONS,
   EvaluationWorkspaceData,
+  getScriptDataset,
 } from "@/data/evaluationWorkspaceMockData";
 import { Eye, SlidersHorizontal, CheckCircle, ArrowLeft } from "lucide-react";
 
@@ -20,17 +21,19 @@ export default function ExaminerEvaluationWorkspacePage() {
   const scriptIdParam = (params?.scriptId as string) || "A-10492";
 
   // State: Current dataset for this script
-  const [dataset, setDataset] = useState<EvaluationWorkspaceData>(EVALUATION_DATASET_MOCK);
+  const [dataset, setDataset] = useState<EvaluationWorkspaceData>(() =>
+    getScriptDataset(scriptIdParam)
+  );
   const [currentQuestionId, setCurrentQuestionId] = useState<string>("Q04");
   const [currentPage, setCurrentPage] = useState<number>(4);
   const [mobileMode, setMobileMode] = useState<"sheet" | "evaluation">("sheet");
 
-  // State: Evaluated scores map (e.g. { "Q04": 6.5, "Q01": 5.0 })
+  // State: Evaluated scores map (Q04 default 5.0 per specification)
   const [evaluatedScores, setEvaluatedScores] = useState<Record<string, number>>({
-    Q01: 5.0,
-    Q02: 5.0,
+    Q01: 3.5,
+    Q02: 4.0,
     Q03: 4.5,
-    Q04: 6.5,
+    Q04: 5.0,
   });
 
   // State: Flagged questions map
@@ -48,10 +51,7 @@ export default function ExaminerEvaluationWorkspacePage() {
   // Sync dataset with param if changed
   useEffect(() => {
     if (scriptIdParam) {
-      setDataset((prev) => ({
-        ...prev,
-        scriptId: scriptIdParam,
-      }));
+      setDataset(getScriptDataset(scriptIdParam));
     }
   }, [scriptIdParam]);
 

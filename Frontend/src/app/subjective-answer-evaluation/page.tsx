@@ -5,7 +5,7 @@ import MarketingFooter from '@/components/marketing/MarketingFooter';
 import { ArrowRight, ArrowUpRight, Scale, BookOpen, CheckCircle, FileCheck, Award, MessageSquare } from 'lucide-react';
 
 export const metadata = {
-  title: "Subjective Answer Evaluation | PaperEval",
+  title: "Subjective Answer Evaluation | ANKLYZE",
   description: "Rubric-grounded evaluation for long-form answers, university essays, and case studies with defensible step marks.",
 };
 
@@ -37,7 +37,7 @@ export default function SubjectiveAnswerEvaluationPage() {
           </h1>
 
           <p className="text-base sm:text-xl text-[#4B5563] max-w-2xl mx-auto leading-relaxed mt-6">
-            Subjective grading shouldn't depend on which evaluator marks the paper or how tired they feel at 5 PM. PaperEval binds multi-criteria rubrics to every paragraph.
+            Subjective grading shouldn't depend on which evaluator marks the paper or how tired they feel at 5 PM. ANKLYZE binds multi-criteria rubrics to every paragraph.
           </p>
 
           <div className="mt-8 flex flex-row items-center justify-center gap-3">

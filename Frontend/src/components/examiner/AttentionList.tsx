@@ -129,7 +129,7 @@ export default function AttentionList({ items }: AttentionListProps) {
                   </button>
 
                   <Link
-                    href={`/examiner/evaluate/${item.scriptId}`}
+                    href={`/examiner/evaluate/${item.scriptId.replace(/^SCRIPT\s+/, "")}`}
                     className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 hover:border-blue-600 hover:bg-blue-50/60 text-slate-800 transition-colors shadow-2xs"
                   >
                     <span>Inspect</span>

@@ -5,7 +5,7 @@ import MarketingFooter from '@/components/marketing/MarketingFooter';
 import { ArrowRight, BookOpen, ShieldCheck, CheckCircle2, FileText, Download, Award, Lock, ExternalLink } from 'lucide-react';
 
 export const metadata = {
-  title: "Resource Hub & Academic Methodology | PaperEval",
+  title: "Resource Hub & Academic Methodology | ANKLYZE",
   description: "Technical whitepapers, accuracy methodology, compliance standards, and responsible AI documentation for higher education.",
 };
 
@@ -57,7 +57,7 @@ export default function ResourcesPage() {
             </div>
 
             <p className="text-gray-600 leading-relaxed text-sm sm:text-base">
-              PaperEval undergoes continuous double-blind benchmarking against veteran university examination panels. Each AI provisional score is compared against the consensus marks awarded by three independent senior professors.
+              ANKLYZE undergoes continuous double-blind benchmarking against veteran university examination panels. Each AI provisional score is compared against the consensus marks awarded by three independent senior professors.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
@@ -89,7 +89,7 @@ export default function ResourcesPage() {
             </div>
 
             <p className="text-gray-600 leading-relaxed text-sm sm:text-base">
-              We reject black-box autonomous grading. Academic degrees impact student livelihoods, so every algorithm deployed in PaperEval enforces 4 non-negotiable principles:
+              We reject black-box autonomous grading. Academic degrees impact student livelihoods, so every algorithm deployed in ANKLYZE enforces 4 non-negotiable principles:
             </p>
 
             <ul className="space-y-3 text-sm text-gray-700">
@@ -121,7 +121,7 @@ export default function ResourcesPage() {
             </div>
 
             <p className="text-gray-600 leading-relaxed text-sm sm:text-base">
-              PaperEval is engineered specifically to meet Indian higher education mandates, state university examination statutes, and data privacy regulations:
+              ANKLYZE is engineered specifically to meet Indian higher education mandates, state university examination statutes, and data privacy regulations:
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">

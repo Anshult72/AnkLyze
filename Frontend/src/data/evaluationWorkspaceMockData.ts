@@ -132,20 +132,21 @@ export const MOCK_EVALUATION_SCRIPTS: Record<string, ScriptEvaluationDataset> = 
         aiSuggestedMarks: 5.0,
         aiConfidence: 87,
         aiConfidenceRating: "High confidence",
-        aiConfidenceNote: "Answer is clearly readable and key rubric elements were detected.",
-        detectedRegionNote: "Page 4 • Main answer block (Lines 1–28)",
+        aiConfidenceNote: "Answer is clearly readable and most rubric criteria are identifiable.",
+        detectedRegionNote: "Answer detected: Pages 4–5 (Page 4 primary, Lines 1–28)",
         rubricItems: [
-          { id: "r1", label: "Core concept & working principle", maxMarks: 2, suggestedMarks: 2, matched: true, note: "Clear statement of operational mechanism" },
-          { id: "r2", label: "Explanation & governing equations", maxMarks: 2, suggestedMarks: 1, matched: true, note: "Primary equation stated; intermediate steps compressed" },
-          { id: "r3", label: "Relevant example / schematic sketch", maxMarks: 1, suggestedMarks: 1, matched: true, note: "System block diagram correctly annotated" },
-          { id: "r4", label: "Supporting factors analysis", maxMarks: 1, suggestedMarks: 1, matched: true, note: "Three environmental and structural factors listed" },
-          { id: "r5", label: "Conclusion & operational summary", maxMarks: 1, suggestedMarks: 0, matched: false, note: "Required concluding summary is missing" },
+          { id: "r1", label: "Core Concept", maxMarks: 2, suggestedMarks: 2, matched: true, note: "Fourier's law of heat conduction identified" },
+          { id: "r2", label: "Working Principle", maxMarks: 2, suggestedMarks: 2, matched: true, note: "Operational mechanism and steady-state condition explained" },
+          { id: "r3", label: "Technical Explanation", maxMarks: 1, suggestedMarks: 1, matched: true, note: "Mathematical formulation & parameter definitions provided" },
+          { id: "r4", label: "Relevant Example", maxMarks: 1, suggestedMarks: 0, matched: false, note: "Practical industrial application example omitted" },
+          { id: "r5", label: "Conclusion", maxMarks: 1, suggestedMarks: 0, matched: false, note: "No summary or concluding statement provided" },
         ],
         evidenceItems: [
-          { id: "e1", text: "Student correctly explains the primary operating principle in paragraph 1 (Lines 3–7).", status: "positive", sectionKey: "principle", matchedLineRange: "Lines 3–7" },
-          { id: "e2", text: "Answer includes the expected system schematic with labelled input/output nodes (Figure 4.1).", status: "positive", sectionKey: "diagram", matchedLineRange: "Lines 12–19" },
-          { id: "e3", text: "Key factors (ambient temperature, mass flow rate, thermal resistance) are identified.", status: "positive", sectionKey: "factors", matchedLineRange: "Lines 21–26" },
-          { id: "e4", text: "Required concluding point on steady-state efficiency is not clearly present.", status: "negative", sectionKey: "conclusion", matchedLineRange: "End of answer" },
+          { id: "e1", text: "Core concept is correctly identified.", status: "positive", sectionKey: "concept", matchedLineRange: "Lines 1–4" },
+          { id: "e2", text: "Working principle is substantially explained.", status: "positive", sectionKey: "principle", matchedLineRange: "Lines 5–10" },
+          { id: "e3", text: "Technical explanation is present.", status: "positive", sectionKey: "technical", matchedLineRange: "Lines 11–18" },
+          { id: "e4", text: "Required example is missing.", status: "negative", sectionKey: "example", matchedLineRange: "Omitted" },
+          { id: "e5", text: "No clear concluding statement is present.", status: "negative", sectionKey: "conclusion", matchedLineRange: "End of answer" },
         ],
       },
       Q05: {
@@ -233,4 +234,18 @@ export const AVAILABLE_QUESTIONS = [
 
 export type EvaluationWorkspaceData = ScriptEvaluationDataset;
 export const EVALUATION_DATASET_MOCK: EvaluationWorkspaceData = MOCK_EVALUATION_SCRIPTS["A-10492"];
+
+export function getScriptDataset(scriptId: string): ScriptEvaluationDataset {
+  const cleanId = scriptId.replace(/^SCRIPT\s+/i, "").trim();
+  if (MOCK_EVALUATION_SCRIPTS[cleanId]) {
+    return MOCK_EVALUATION_SCRIPTS[cleanId];
+  }
+  // Construct dynamic fallback with clean scriptId
+  const base = MOCK_EVALUATION_SCRIPTS["A-10492"];
+  return {
+    ...base,
+    scriptId: cleanId.startsWith("A-") ? cleanId : `A-${cleanId}`,
+    anonymizedCode: `ANON-${cleanId}-MPONL`,
+  };
+}
 
