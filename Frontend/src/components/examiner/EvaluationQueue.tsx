@@ -61,6 +61,7 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
   const getRiskBadge = (risk: RiskLevel) => {
     switch (risk) {
       case "High":
+      case "High Risk":
         return (
           <span className="inline-flex items-center text-xs font-bold text-rose-600">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5" />
@@ -68,6 +69,7 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
           </span>
         );
       case "Medium":
+      case "Medium Risk":
         return (
           <span className="inline-flex items-center text-xs font-bold text-amber-600">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5" />
@@ -75,6 +77,7 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
           </span>
         );
       case "Low":
+      case "Low Risk":
       default:
         return (
           <span className="inline-flex items-center text-xs font-bold text-emerald-600">

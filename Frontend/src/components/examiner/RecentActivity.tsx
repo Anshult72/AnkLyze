@@ -67,16 +67,21 @@ export default function RecentActivity({ activities }: RecentActivityProps) {
                   <div className="min-w-0 flex-1 flex justify-between space-x-2 text-xs">
                     <div>
                       <p className="text-slate-800 font-medium">
-                        {item.description}
+                        {item.title || item.description}
                       </p>
-                      {item.scriptId && (
-                        <span className="font-mono text-[10px] text-slate-400">
-                          Target: {item.scriptId}
+                      {item.detail && (
+                        <p className="text-slate-500 text-[11px] mt-0.5">
+                          {item.detail}
+                        </p>
+                      )}
+                      {(item.scriptRef || item.scriptId) && (
+                        <span className="font-mono text-[10px] text-slate-400 block mt-0.5">
+                          Target: {item.scriptRef || item.scriptId}
                         </span>
                       )}
                     </div>
                     <div className="text-right text-[11px] whitespace-nowrap text-slate-400 font-mono">
-                      {item.timestamp}
+                      {item.time || item.timestamp}
                     </div>
                   </div>
                 </div>

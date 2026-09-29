@@ -193,7 +193,7 @@ export default function FeatureSuiteSection() {
                   </div>
                 ) : (
                   <div className={`absolute -top-5 right-6 w-9 h-9 rounded-full border flex items-center justify-center shadow-xs ${f.iconBg}`}>
-                    {React.createElement(f.icon, { className: "w-4 h-4" })}
+                    {f.icon ? React.createElement(f.icon, { className: "w-4 h-4" }) : null}
                   </div>
                 )}
 

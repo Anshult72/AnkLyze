@@ -22,7 +22,7 @@ export interface WorkSummaryMetrics {
 }
 
 export type ScriptStatus = "AI Ready" | "Needs Review" | "Attention" | "Completed";
-export type RiskLevel = "Low Risk" | "Medium Risk" | "High Risk";
+export type RiskLevel = "Low Risk" | "Medium Risk" | "High Risk" | "Low" | "Medium" | "High";
 
 export interface EvaluationQueueScript {
   id: string;
@@ -45,9 +45,12 @@ export interface AttentionItem {
   issueDetail: string;
   supportingInfo: string;
   severity: "High" | "Medium" | "Low";
-  actionText: string;
-  pageNumber: number;
-  timestamp: string;
+  actionText?: string;
+  pageNumber?: number;
+  timestamp?: string;
+  reason?: string;
+  recommendedAction?: string;
+  delta?: string;
 }
 
 export interface ProgressMetrics {
@@ -63,11 +66,14 @@ export interface ProgressMetrics {
 
 export interface RecentActivityItem {
   id: string;
-  time: string;
-  title: string;
-  detail: string;
+  time?: string;
+  title?: string;
+  detail?: string;
   category: "submission" | "review" | "completion" | "flag" | "session";
   scriptRef?: string;
+  description?: string;
+  scriptId?: string;
+  timestamp?: string;
 }
 
 export const EXAMINER_CONTEXT: ExaminerContext = {

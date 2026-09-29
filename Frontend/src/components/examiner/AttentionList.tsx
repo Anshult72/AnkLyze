@@ -105,15 +105,15 @@ export default function AttentionList({ items }: AttentionListProps) {
                   </div>
 
                   <div className="text-sm font-semibold text-slate-900">
-                    {item.reason}
+                    {item.issueTitle || item.reason}
                   </div>
 
                   <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
-                    {item.recommendedAction}
+                    {item.issueDetail || item.recommendedAction}
                   </p>
 
                   <div className="text-xs font-mono font-medium text-blue-600 pt-0.5">
-                    {item.delta}
+                    {item.supportingInfo || item.delta}
                   </div>
                 </div>
 
