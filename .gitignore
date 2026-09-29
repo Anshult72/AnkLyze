@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# reference images and audit data
+ref_*.png
+our_*.jpg
+papergrader_site_data.json
+
