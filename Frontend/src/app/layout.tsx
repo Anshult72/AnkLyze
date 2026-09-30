@@ -31,6 +31,14 @@ import { RealtimeProvider } from "@/context/RealtimeContext";
 export const metadata: Metadata = {
   title: "ANKLYZE | Analyse the marks, not just the paper",
   description: "AI-assisted handwritten examination evaluation workstation with rubric alignment and human examiner decision-making.",
+  icons: {
+    icon: [
+      { url: "/anklyze-mark.png", type: "image/png" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: "/anklyze-mark.png",
+    apple: "/anklyze-mark.png",
+  },
 };
 
 export default function RootLayout({
