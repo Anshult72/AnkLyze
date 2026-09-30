@@ -1,110 +1,54 @@
-import React from 'react';
-import Link from 'next/link';
-import MarketingNav from '@/components/marketing/MarketingNav';
-import MarketingFooter from '@/components/marketing/MarketingFooter';
-import { ArrowRight, ArrowUpRight, Shield, Award, Users, CheckCircle } from 'lucide-react';
+import Link from "next/link";
+import { ArrowRight, ArrowUpRight, Eye, HeartHandshake, ShieldCheck } from "lucide-react";
+import MarketingNav from "@/components/marketing/MarketingNav";
+import MarketingFooter from "@/components/marketing/MarketingFooter";
+import styles from "../InteriorPage.module.css";
 
 export const metadata = {
-  title: "About ANKLYZE | Examination Technology & Academic Integrity",
-  description: "Learn how ANKLYZE combines vision AI with human educator oversight to eliminate grading delays and ensure academic defensibility.",
+  title: "About ANKLYZE | A More Thoughtful Way to Evaluate",
+  description: "Learn why ANKLYZE keeps student work, rubric evidence and educator judgement together.",
 };
+
+const beliefs = [
+  { number: "01", icon: HeartHandshake, title: "The student is more than a score.", body: "Working, corrections and partial understanding all deserve to be seen. A useful evaluation starts by reading the answer in full." },
+  { number: "02", icon: Eye, title: "A mark should show its reason.", body: "Suggestions should point back to the answer and the marking criterion so an educator can challenge or confirm them." },
+  { number: "03", icon: ShieldCheck, title: "The final decision is human.", body: "Technology can prepare the desk. Faculty expertise supplies the context, the judgement and the sign-off." },
+];
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#FCFAF5] selection:bg-amber-200 selection:text-slate-900">
+    <div className={styles.page}>
       <MarketingNav />
-
-      <main className="flex-1 pt-32 pb-20">
-        {/* HERO SECTION */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-8 pb-16">
-          <div className="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-widest text-[#2563EB] mb-4 bg-blue-50/80 px-3 py-1 rounded-full border border-blue-200/60">
-            <span>✦</span>
-            <span>INSTITUTIONAL MISSION &amp; INTEGRITY</span>
+      <main>
+        <section className={`${styles.hero} ${styles.aboutHero}`}>
+          <div>
+            <span className={styles.eyebrow}>ANKLYZE / OUR POINT OF VIEW</span>
+            <h1>Better evaluation begins with <em>better attention.</em></h1>
+            <p>Every answer sheet holds a student&apos;s attempt to explain, apply and improve. We built ANKLYZE to help educators see that work clearly and make decisions they can stand behind.</p>
+            <Link href="/contact?pilot=1" className={styles.primaryLink}>Start a conversation <ArrowRight size={17} /></Link>
           </div>
-
-          <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-normal text-[#111827] tracking-tight leading-[1.12] max-w-4xl mx-auto">
-            Restoring time &amp; trust to{" "}
-            <span className="italic relative inline-block">
-              every grade
-              <svg
-                className="absolute -bottom-2 left-0 w-full h-3 text-[#2563EB] pointer-events-none"
-                viewBox="0 0 280 12"
-                fill="none"
-              >
-                <path d="M3 9C55 4 125 3 277 8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-              </svg>
-            </span>.
-          </h1>
-
-          <p className="text-base sm:text-xl text-[#4B5563] max-w-2xl mx-auto leading-relaxed mt-6">
-            Higher education in India conducts hundreds of millions of handwritten evaluations every semester. ANKLYZE was founded to protect faculty from valuation fatigue while giving students transparent, defensible results.
-          </p>
-        </section>
-
-        {/* 3 CORE PILLARS */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mb-24">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="p-8 rounded-3xl bg-white border border-gray-200 shadow-xs space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                <Users className="w-6 h-6" />
-              </div>
-              <h3 className="font-serif text-2xl font-bold text-gray-900">Educators Over Automation</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                We believe AI should prepare the groundwork—transcription, rubric checks, step matching—never issue the final verdict. Faculty expertise is irreplaceable.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-3xl bg-white border border-gray-200 shadow-xs space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                <Shield className="w-6 h-6" />
-              </div>
-              <h3 className="font-serif text-2xl font-bold text-gray-900">Defensible Evidence</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Every awarded mark links to candidate handwriting snippets and explicit rubric clauses, virtually eliminating arbitrary scoring and student RTI appeals.
-              </p>
-            </div>
-
-            <div className="p-8 rounded-3xl bg-white border border-gray-200 shadow-xs space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                <Award className="w-6 h-6" />
-              </div>
-              <h3 className="font-serif text-2xl font-bold text-gray-900">National Accreditation Ready</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Direct question-level mapping to Bloom's taxonomy and Course Outcomes (CO-PO) automates statutory compliance for NAAC and NBA accreditation.
-              </p>
-            </div>
+          <div className={styles.manifesto}>
+            <span>NOTE NO. 01 / FROM OUR DESK</span>
+            <p>“The most important part of an evaluation isn&apos;t the number at the end. It&apos;s the thinking we noticed along the way.”</p>
+            <div><span>AI-ASSISTED</span><span>EDUCATOR-LED</span></div>
           </div>
         </section>
 
-        {/* BOTTOM CTA */}
-        <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pb-8">
-          <div className="p-10 bg-slate-900 text-white rounded-3xl space-y-6">
-            <h2 className="font-serif text-3xl sm:text-4xl text-white">
-              Experience the future of examination evaluation
-            </h2>
-            <p className="text-slate-400 text-sm max-w-xl mx-auto leading-relaxed">
-              Explore the examiner workspace cockpit or get in touch for an institutional pilot.
-            </p>
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
-              <Link
-                href="/examiner/dashboard"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition-all"
-              >
-                Launch Examiner Portal
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                href="/contact"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg text-sm transition-all border border-slate-700"
-              >
-                Contact Academic Team
-                <ArrowUpRight className="w-4 h-4 text-slate-400" />
-              </Link>
-            </div>
+        <section className={styles.beliefs}>
+          <div className={styles.sectionIntro}><span>THREE BELIEFS / ONE WORKFLOW</span><h2>What we keep<br /><em>at the centre.</em></h2></div>
+          <div className={styles.beliefList}>
+            {beliefs.map(({ number, icon: Icon, title, body }) => (
+              <article key={number} className={styles.belief}>
+                <span className={styles.beliefNumber}>{number}</span>
+                <span className={styles.beliefIcon}><Icon size={23} strokeWidth={1.5} /></span>
+                <div><h3>{title}</h3><p>{body}</p></div>
+              </article>
+            ))}
           </div>
         </section>
+
+        <section className={styles.aboutClosing}><span>WHERE THE WORK GOES NEXT</span><h2>Put a real script on the table.</h2><p>See how a rubric-linked draft and a faculty decision can sit side by side.</p><div><Link href="/examiner/dashboard">Explore examiner desk <ArrowUpRight size={17} /></Link><Link href="/contact">Talk to our team <ArrowRight size={17} /></Link></div></section>
       </main>
-
       <MarketingFooter />
     </div>
   );

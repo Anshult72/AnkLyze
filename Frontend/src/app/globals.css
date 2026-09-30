@@ -6,38 +6,38 @@
      ======================================================== */
 
   /* 1. Core Brand Colors */
-  --color-brand-primary: #2563EB;
-  --color-brand-primary-hover: #1D4ED8;
-  --color-brand-primary-active: #1E40AF;
-  --color-brand-primary-subtle: #EFF6FF;
-  --color-brand-primary-border: #BFDBFE;
+  --color-brand-primary: #468189;
+  --color-brand-primary-hover: #326C74;
+  --color-brand-primary-active: #20565E;
+  --color-brand-primary-subtle: #EAF2EE;
+  --color-brand-primary-border: #B9D7D0;
 
   /* 2. Dark Charcoal Tones (Footer & Accents) */
-  --color-brand-dark: #12151B;
-  --color-brand-dark-surface: #1E232E;
-  --color-brand-dark-border: #2D3748;
+  --color-brand-dark: #031926;
+  --color-brand-dark-surface: #0A303A;
+  --color-brand-dark-border: #365961;
 
   /* 3. Surface & Canvas */
   --color-canvas: #FCFAF5;
   --color-surface: #FFFFFF;
-  --color-surface-subtle: #F8FAFC;
-  --color-surface-muted: #F1F5F9;
+  --color-surface-subtle: #F8F8F3;
+  --color-surface-muted: #EAF2EE;
 
   /* 4. Text Hierarchy */
-  --color-text-primary: #111827;
-  --color-text-secondary: #4B5563;
-  --color-text-muted: #9CA3AF;
+  --color-text-primary: #062834;
+  --color-text-secondary: #52686D;
+  --color-text-muted: #81999B;
   --color-text-inverted: #FFFFFF;
 
   /* 5. Borders */
-  --color-border-default: #E2E8F0;
-  --color-border-subtle: #F1F5F9;
-  --color-border-focus: #2563EB;
+  --color-border-default: #D4E3DF;
+  --color-border-subtle: #E6EEEA;
+  --color-border-focus: #468189;
 
   /* 6. Gold / Amber Accent (Editorial Underlines & Notes) */
-  --color-accent-gold: #F59E0B;
-  --color-accent-gold-light: #FBBF24;
-  --color-accent-gold-bg: #FEF9C3;
+  --color-accent-gold: #B88B4A;
+  --color-accent-gold-light: #D1AA6D;
+  --color-accent-gold-bg: #F9F2E4;
 
   /* 7. Semantic Evaluation States */
   --color-status-low: #16A34A;
@@ -53,16 +53,16 @@
   --color-status-high-border: #FECACA;
 
   /* 8. Backward Compatibility Aliases (Mapped to Unified System) */
-  --color-navy: #111827;
-  --color-navy-surface: #1E232E;
-  --color-navy-hover: #1F2937;
-  --color-teal-action: #2563EB;
-  --color-teal-action-hover: #1D4ED8;
-  --color-teal-action-subtle: #EFF6FF;
-  --color-teal-signal: #3B82F6;
-  --color-teal-mist: #93C5FD;
-  --color-teal-mist-light: #EFF6FF;
-  --color-warm-ivory: #FEF9C3;
+  --color-navy: #031926;
+  --color-navy-surface: #0A303A;
+  --color-navy-hover: #164650;
+  --color-teal-action: #468189;
+  --color-teal-action-hover: #326C74;
+  --color-teal-action-subtle: #EAF2EE;
+  --color-teal-signal: #77ACA2;
+  --color-teal-mist: #9DBEBB;
+  --color-teal-mist-light: #EAF2EE;
+  --color-warm-ivory: #F4E9CD;
   --color-warm-ivory-light: #FCFAF5;
   --color-page-bg: #FCFAF5;
 
@@ -76,15 +76,15 @@
 :root {
   --bg-page: #FCFAF5;
   --surface: #FFFFFF;
-  --text-primary: #111827;
-  --text-secondary: #4B5563;
-  --border-subtle: #E2E8F0;
-  --brand-primary: #2563EB;
+  --text-primary: #062834;
+  --text-secondary: #52686D;
+  --border-subtle: #D4E3DF;
+  --brand-primary: #468189;
 }
 
 body {
-  background-color: #FCFAF5;
-  color: #111827;
+  background-color: #F8F8F3;
+  color: #062834;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -96,14 +96,14 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: #EAF2EE;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #9DBEBB;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #77ACA2;
 }
 
 .font-handwriting {

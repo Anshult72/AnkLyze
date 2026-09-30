@@ -1,0 +1,140 @@
+/* The examiner and administration desk shares the paper-and-ink language of the public site. */
+.workspace-shell {
+  --desk-ink: #062834;
+  --desk-teal: #468189;
+  --desk-line: #d4e3df;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 85% 3%, #e2efeb 0, transparent 30%), #f8f8f3 !important;
+  color: var(--desk-ink);
+}
+
+@media (min-width: 1280px) {
+  .workspace-shell:has(> .portal-sidebar) { padding-left: 88px; }
+}
+
+.workspace-review-header {
+  background: rgb(255 255 251 / 92%);
+  border-color: #c9dfd6;
+  box-shadow: 0 8px 24px rgb(6 40 52 / 5%);
+  backdrop-filter: blur(18px);
+}
+
+.workspace-shell > .bg-white.border-b,
+.workspace-shell > .bg-white.border-b.border-slate-200\/90 {
+  background: transparent;
+  border-color: var(--desk-line);
+  box-shadow: none;
+}
+
+.workspace-shell main .bg-white,
+.workspace-shell main .bg-slate-50,
+.workspace-shell main .bg-slate-50\/50,
+.workspace-shell main .bg-\[\#FCFAF5\] {
+  background-color: #fffefa;
+}
+
+.workspace-shell main .border-slate-200,
+.workspace-shell main .border-slate-200\/90,
+.workspace-shell main .border-slate-100 {
+  border-color: var(--desk-line);
+}
+
+.workspace-shell main .rounded-2xl {
+  border-radius: 20px;
+}
+
+.workspace-shell main .shadow-xs,
+.workspace-shell main .shadow-sm {
+  box-shadow: 0 10px 30px rgb(6 40 52 / 5%);
+}
+
+/* Legacy blue and purple utility accents now use the ink and teal desk palette. */
+.workspace-shell :is([class~="bg-blue-50"],[class~="bg-blue-50/20"],[class~="bg-blue-50/25"],[class~="bg-blue-50/30"],[class~="bg-blue-50/50"],[class~="bg-blue-50/60"],[class~="bg-blue-50/70"],[class~="bg-blue-50/80"],[class~="bg-blue-50/[0.02]"],[class~="bg-blue-50/[0.04]"],[class~="bg-purple-50"]) { background-color:#eaf2ee !important; }
+.workspace-shell :is([class~="bg-blue-100"],[class~="bg-blue-100/60"]) { background-color:#d9eae3 !important; }
+.workspace-shell [class~="bg-blue-200"] { background-color:#c5ddd4 !important; }
+.workspace-shell :is([class~="bg-blue-500"],[class~="bg-blue-600"],[class~="bg-emerald-600"]) { background-color:var(--desk-teal) !important; }
+.workspace-shell :is([class~="bg-blue-700"],[class~="bg-blue-800"],[class~="hover:bg-blue-700"]:hover,[class~="hover:bg-emerald-700"]:hover) { background-color:#326c74 !important; }
+.workspace-shell :is([class~="active:bg-blue-800"]:active,[class~="hover:bg-blue-800"]:hover) { background-color:#20565e !important; }
+.workspace-shell :is([class~="bg-amber-600"],[class~="bg-orange-600"]) { background-color:#a98049 !important; }
+.workspace-shell :is([class~="hover:bg-amber-700"]:hover,[class~="hover:bg-orange-700"]:hover) { background-color:#8c693d !important; }
+.workspace-shell :is([class~="hover:bg-blue-50"]:hover,[class~="hover:bg-blue-50/20"]:hover,[class~="hover:bg-blue-50/25"]:hover,[class~="hover:bg-blue-50/30"]:hover,[class~="hover:bg-blue-50/60"]:hover,[class~="hover:bg-blue-100"]:hover) { background-color:#eaf2ee !important; }
+
+.workspace-shell :is([class~="text-blue-400"],[class~="text-blue-600"],[class~="text-blue-700"],[class~="text-blue-800"],[class~="text-blue-800/70"],[class~="text-indigo-600"],[class~="text-purple-600"],[class~="text-purple-700"]) { color:#397781 !important; }
+.workspace-shell :is([class~="text-blue-900"],[class~="text-blue-950"]) { color:#123d50 !important; }
+.workspace-shell :is([class~="hover:text-blue-600"]:hover,[class~="hover:text-blue-700"]:hover,[class~="hover:text-blue-800"]:hover,.group:hover [class~="group-hover:text-blue-600"],.group:hover [class~="group-hover:text-blue-700"]) { color:#326c74 !important; }
+
+.workspace-shell :is([class~="border-blue-100"],[class~="border-blue-100/80"],[class~="border-blue-200"],[class~="border-blue-200/60"],[class~="border-blue-200/80"],[class~="border-blue-300"],[class~="border-purple-200"]) { border-color:#b9d7d0 !important; }
+.workspace-shell :is([class~="border-blue-400"],[class~="border-blue-400/80"],[class~="border-blue-500"],[class~="border-blue-600"],[class~="border-blue-950"]) { border-color:#468189 !important; }
+.workspace-shell :is([class~="hover:border-blue-200"]:hover,[class~="hover:border-blue-400"]:hover) { border-color:#85b6ad !important; }
+.workspace-shell :is([class~="decoration-blue-900"],[class~="decoration-blue-900/60"]) { text-decoration-color:#123d50 !important; }
+
+.workspace-shell :is(input, textarea, select):focus-visible {
+  outline-color: var(--desk-teal);
+}
+
+.workspace-shell h1,
+.workspace-shell h2 {
+  color: var(--desk-ink);
+}
+
+.workspace-shell h1.font-serif,
+.workspace-shell h2.font-serif {
+  font-weight: 500;
+  letter-spacing: -.035em;
+}
+
+.workspace-shell footer {
+  background: #f1f5f1;
+  border-color: var(--desk-line);
+}
+
+.workspace-shell > div:has(> .max-w-7xl h1) {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(100deg, #fffefa 0%, #eff6f2 100%) !important;
+  border-bottom: 1px solid var(--desk-line);
+}
+
+.workspace-shell > div:has(> .max-w-7xl h1)::after {
+  content: "";
+  position: absolute;
+  right: 7%;
+  top: -80px;
+  width: 260px;
+  height: 260px;
+  border: 1px solid #9ec7bb70;
+  border-radius: 50%;
+  box-shadow: 0 0 0 32px #9ec7bb18, 0 0 0 64px #9ec7bb12;
+  pointer-events: none;
+}
+
+.workspace-shell > div:has(> .max-w-7xl h1) h1 {
+  font-size: clamp(30px, 3vw, 45px);
+}
+
+.workspace-metric-deck > div {
+  position: relative;
+  min-height: 158px;
+  padding-top: 32px;
+}
+
+.workspace-metric-deck > div::before {
+  content: "";
+  position: absolute;
+  left: 23px;
+  top: 20px;
+  width: 24px;
+  height: 3px;
+  border-radius: 99px;
+  background: #468189;
+}
+
+.workspace-metric-deck > div:nth-child(2)::before { background: #83b79d; }
+.workspace-metric-deck > div:nth-child(3)::before { background: #aec8bb; }
+.workspace-metric-deck > div:nth-child(4)::before { background: #c5a876; }
+
+@media (max-width: 639px) {
+  .workspace-metric-deck > div { min-height: 140px; }
+  .workspace-shell > div:has(> .max-w-7xl h1)::after { right: -180px; }
+}
+

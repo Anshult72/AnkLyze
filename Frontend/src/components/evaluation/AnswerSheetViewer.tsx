@@ -231,7 +231,7 @@ export default function AnswerSheetViewer({
           <div
             className="absolute inset-0 pointer-events-none opacity-[0.14] z-0"
             style={{
-              backgroundImage: `linear-gradient(to bottom, transparent 27px, #2563EB 28px)`,
+              backgroundImage: `linear-gradient(to bottom, transparent 27px, #9DBEBB 28px)`,
               backgroundSize: "100% 28px",
             }}
           />
@@ -398,7 +398,7 @@ export default function AnswerSheetViewer({
                       <line x1="295" y1="35" x2="315" y2="55" strokeWidth="1.2" strokeOpacity="0.45" />
 
                       {/* Heat Inflow Arrow */}
-                      <path d="M 55 80 L 145 80 M 135 73 L 145 80 L 135 87" strokeWidth="2.4" stroke="#1d4ed8" />
+                      <path d="M 55 80 L 145 80 M 135 73 L 145 80 L 135 87" strokeWidth="2.4" stroke="#326c74" />
                       <text x="45" y="65" className="fill-blue-950 stroke-none font-handwriting text-[14px] font-bold">
                         Heat In (Q_in)
                       </text>
@@ -407,7 +407,7 @@ export default function AnswerSheetViewer({
                       </text>
 
                       {/* Heat Outflow Arrow */}
-                      <path d="M 335 80 L 425 80 M 415 73 L 425 80 L 415 87" strokeWidth="2.4" stroke="#1d4ed8" />
+                      <path d="M 335 80 L 425 80 M 415 73 L 425 80 L 415 87" strokeWidth="2.4" stroke="#326c74" />
                       <text x="345" y="65" className="fill-blue-950 stroke-none font-handwriting text-[14px] font-bold">
                         Heat Out (Q_out)
                       </text>

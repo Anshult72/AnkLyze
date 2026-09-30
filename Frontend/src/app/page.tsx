@@ -1,7 +1,7 @@
 import React from 'react';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import HeroSection from '@/components/marketing/HeroSection';
-import TrustMetricsBar from '@/components/marketing/TrustMetricsBar';
+import BookScrollStory from '@/components/marketing/BookScrollStory';
 import HumanInLoopSection from '@/components/marketing/HumanInLoopSection';
 import FeatureSuiteSection from '@/components/marketing/FeatureSuiteSection';
 import MarketingFooter from '@/components/marketing/MarketingFooter';
@@ -13,26 +13,26 @@ export const metadata = {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#FCFAF5] selection:bg-amber-200 selection:text-slate-900">
+    <div className="min-h-screen flex flex-col bg-[#e3dfd3] selection:bg-[#c5ddd4] selection:text-slate-900">
       {/* Floating Pill Navigation */}
       <MarketingNav />
 
       {/* Main Content Sections */}
       <main className="flex-1">
-        {/* 1. Hero Section */}
+        {/* Scroll-driven hero */}
+        <BookScrollStory />
+
+        {/* Existing answer-sheet visual */}
         <HeroSection />
 
-        {/* 2. Institutional Trust Metrics Bar */}
-        <TrustMetricsBar />
-
-        {/* 3. Human in the Loop / Workflow Section */}
+        {/* Human in the Loop / Workflow Section */}
         <HumanInLoopSection />
 
-        {/* 4. Institutional Feature Suite */}
+        {/* Institutional Feature Suite */}
         <FeatureSuiteSection />
       </main>
 
-      {/* 5. Dark Footer with CTA Banner */}
+      {/* Dark Footer with CTA Banner */}
       <MarketingFooter />
     </div>
   );

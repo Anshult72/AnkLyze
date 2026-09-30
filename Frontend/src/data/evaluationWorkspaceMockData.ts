@@ -15,6 +15,38 @@ export interface EvidenceObservation {
   matchedLineRange?: string;
 }
 
+export interface RiskFactorData {
+  factorType: string;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  scoreContribution: number;
+  measuredValue?: number;
+  threshold?: number;
+  explanation: string;
+  sourceEntityType?: string;
+}
+
+export interface RiskAssessmentData {
+  overallRiskScore: number;
+  riskBand: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  requiresSecondEvaluation: boolean;
+  requiresSeniorReview: boolean;
+  requiresHumanReview: boolean;
+  formulaVersion: string;
+  factors: RiskFactorData[];
+}
+
+export interface DoubleEvaluationData {
+  round1Marks: number;
+  round2Marks: number;
+  markDelta: number;
+  normalizedDelta: number;
+  status: "DOUBLE_EVALUATION_AGREED" | "DOUBLE_EVALUATION_DISAGREEMENT" | "PENDING_SECOND_EVALUATION";
+  requiresSeniorReview: boolean;
+  criteriaDifferencesCount: number;
+  round1ExaminerName?: string;
+  round2ExaminerName?: string;
+}
+
 export interface QuestionData {
   questionNumber: string;
   section: string;
@@ -28,6 +60,8 @@ export interface QuestionData {
   rubricItems: RubricCriterion[];
   evidenceItems: EvidenceObservation[];
   detectedRegionNote: string;
+  riskAssessment?: RiskAssessmentData;
+  doubleEvaluationResult?: DoubleEvaluationData;
 }
 
 export interface ScriptEvaluationDataset {
@@ -148,6 +182,81 @@ export const MOCK_EVALUATION_SCRIPTS: Record<string, ScriptEvaluationDataset> = 
           { id: "e4", text: "Required example is missing.", status: "negative", sectionKey: "example", matchedLineRange: "Omitted" },
           { id: "e5", text: "No clear concluding statement is present.", status: "negative", sectionKey: "conclusion", matchedLineRange: "End of answer" },
         ],
+        riskAssessment: {
+          overallRiskScore: 68,
+          riskBand: "HIGH",
+          requiresSecondEvaluation: true,
+          requiresSeniorReview: true,
+          requiresHumanReview: true,
+          formulaVersion: "risk-v1",
+          factors: [
+            {
+              factorType: "AI_HUMAN_DISAGREEMENT",
+              severity: "MEDIUM",
+              scoreContribution: 20,
+              measuredValue: 0.28,
+              threshold: 0.20,
+              explanation: "Examiner final marks (5.0/7) differ from AI suggestion by 1.0 mark (14.3%).",
+              sourceEntityType: "ExaminerEvaluationDecision",
+            },
+            {
+              factorType: "AI_UNCERTAINTY",
+              severity: "LOW",
+              scoreContribution: 16,
+              measuredValue: 0.87,
+              threshold: 0.80,
+              explanation: "AI confidence is 87% with minor region boundary ambiguity on continuation page.",
+              sourceEntityType: "Evaluation",
+            },
+            {
+              factorType: "CRITERION_DISAGREEMENT",
+              severity: "LOW",
+              scoreContribution: 10,
+              measuredValue: 0.40,
+              threshold: 0.25,
+              explanation: "Examiner overridden 2 of 5 rubric criteria for partial credit.",
+              sourceEntityType: "ExaminerCriterionDecision",
+            },
+            {
+              factorType: "SCAN_PAGE_QUALITY",
+              severity: "LOW",
+              scoreContribution: 10,
+              measuredValue: 0.76,
+              threshold: 0.80,
+              explanation: "Document page scan readability average is 76%.",
+              sourceEntityType: "ScriptPage",
+            },
+            {
+              factorType: "RUBRIC_AMBIGUITY",
+              severity: "LOW",
+              scoreContribution: 7,
+              measuredValue: 1,
+              threshold: 1,
+              explanation: "Alternate derivation method detected in working steps.",
+              sourceEntityType: "EvaluationIssue",
+            },
+            {
+              factorType: "SPECIAL_ANSWER_STATE",
+              severity: "LOW",
+              scoreContribution: 5,
+              measuredValue: 1,
+              threshold: 1,
+              explanation: "Answer spans across multiple booklet pages (Pages 4–5).",
+              sourceEntityType: "QuestionAttemptPage",
+            },
+          ],
+        },
+        doubleEvaluationResult: {
+          round1Marks: 5.0,
+          round2Marks: 3.5,
+          markDelta: 1.5,
+          normalizedDelta: 0.214,
+          status: "DOUBLE_EVALUATION_DISAGREEMENT",
+          requiresSeniorReview: true,
+          criteriaDifferencesCount: 2,
+          round1ExaminerName: "Prof. Anshul Tripathi (Round 1)",
+          round2ExaminerName: "Prof. M. Joshi (Round 2)",
+        },
       },
       Q05: {
         questionNumber: "Q05",

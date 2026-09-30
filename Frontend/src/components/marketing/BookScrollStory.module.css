@@ -1,0 +1,55 @@
+.story { --navy:#031926; --teal:#468189; --signal:#77ACA2; --mist:#9DBEBB; --ivory:#F4E9CD; --ink:#10202A; --muted:#5F6B70; --border:#D9DFDD; position:relative; height:690vh; background:#e3dfd3; color:var(--ink); overflow:clip; }
+.stage { position:sticky; top:0; height:100svh; min-height:620px; overflow:hidden; isolation:isolate; background:linear-gradient(to bottom,transparent 40%,rgba(100,86,58,.065)),linear-gradient(110deg,#d5d0c4 23%,#eeeade 77%); }
+.stage::before { content:""; position:absolute; inset:18px; border:1px solid rgba(70,129,137,.14); pointer-events:none; }
+.storyHeading { position:absolute; top:clamp(90px,11vh,112px); left:0; right:0; z-index:50; text-align:center; pointer-events:none; }
+.storyKicker { display:block; color:var(--teal); font:700 10px Arial,sans-serif; letter-spacing:.24em; }
+.storyHeading h1 { margin:10px auto 0; max-width:1120px; color:var(--ink); font-family:var(--font-serif),Georgia,serif; font-size:clamp(25px,3.1vw,44px); font-weight:400; line-height:1.12; letter-spacing:-.035em; transform-origin:center top; }
+.storyHeading h1 em,.reducedContent>h1 em { color:var(--teal); font-weight:400; }
+.finalDetails { position:absolute; inset:0; z-index:60; opacity:0; visibility:hidden; pointer-events:none; text-align:center; }
+.finalBody { position:absolute; top:var(--final-copy-top,53%); left:20px; right:20px; display:flex; flex-direction:column; align-items:center; gap:24px; }
+.finalKicker { position:absolute; top:var(--final-kicker-top,18%); left:0; right:0; display:flex; align-items:center; justify-content:center; gap:10px; color:#3c4a54; font:700 12px Arial,sans-serif; letter-spacing:.13em; }
+.finalKicker span { width:8px; height:8px; border-radius:50%; background:var(--teal); }
+.finalSubtitle { margin:0 auto; max-width:760px; color:#4B5563; font:18px/1.55 Arial,sans-serif; }
+.finalActions { display:flex; align-items:center; justify-content:center; gap:14px; pointer-events:auto; }
+.pilotButton,.plansButton { min-height:53px; display:inline-flex; align-items:center; justify-content:center; gap:10px; padding:0 26px; border-radius:9px; font:700 14px Arial,sans-serif; text-decoration:none; transition:background-color .2s ease,transform .2s ease,box-shadow .2s ease; }
+.pilotButton { color:white; background:var(--teal); box-shadow:0 6px 16px rgba(70,129,137,.2); }
+.pilotButton:hover { background:#326c74; transform:translateY(-2px); box-shadow:0 9px 20px rgba(70,129,137,.25); }
+.plansButton { color:#10202A; background:white; border:1px solid #D9DFDD; }
+.plansButton:hover { background:#F7F8F6; transform:translateY(-2px); }
+.pilotButton:focus-visible,.plansButton:focus-visible { outline:3px solid var(--signal); outline-offset:3px; }
+.finalNote { margin:-10px 0 0; color:#82919a; font:12px Arial,sans-serif; }
+.caption { position:absolute; bottom:43px; left:20px; right:20px; text-align:center; font-size:12px; color:var(--muted); z-index:2; }
+.scrollCue { position:absolute; bottom:19px; left:0; right:0; text-align:center; font-size:9px; font-weight:700; letter-spacing:.18em; color:var(--teal); z-index:2; }
+.scrollCue span { font-size:15px; vertical-align:-1px; margin-left:6px; }
+.scene { position:absolute; inset:225px 0 80px; display:grid; place-items:center; }
+.videoViewport { position:relative; height:100%; max-width:100%; aspect-ratio:1400 / 1080; overflow:hidden; mask-image:linear-gradient(to right,transparent,#000 3%,#000 97%,transparent),linear-gradient(to bottom,transparent,#000 9%,#000 89%,transparent); mask-composite:intersect; }
+.videoBook { display:block; position:absolute; top:0; left:-16.929%; width:137.143%; max-width:none; height:100%; object-fit:fill; pointer-events:none; }
+
+.reducedContent { display:none; }
+@media (max-width:900px) {
+  .story { height:760vh; }
+  .stage { min-height:0; }
+  .stage::before { inset:8px; }
+  .storyHeading { top:92px; }
+  .storyHeading h1 { font-size:clamp(25px,7vw,34px); max-width:90%; }
+  .finalKicker { font-size:10px; }
+  .finalSubtitle { font-size:15px; }
+  .caption { bottom:47px; font-size:9px; line-height:1.3; }
+  .scrollCue { bottom:14px; font-size:8px; }
+  .scene { inset:190px 12px 95px; }
+  .videoViewport { width:100%; height:auto; }
+
+}
+@media (max-width:600px) {
+  .storyHeading h1 { font-size:clamp(25px,7vw,30px); }
+  .finalSubtitle { font-size:14px; line-height:1.5; }
+  .desktopBreak { display:none; }
+  .finalActions { gap:8px; }
+  .pilotButton,.plansButton { min-height:46px; padding:0 15px; font-size:12px; }
+  .finalNote { font-size:11px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .story { height:auto; padding:130px 20px 100px; }.stage { display:none; }.reducedContent { display:block; max-width:1120px; margin:auto; text-align:center; }.reducedContent>h1 { margin:0 auto 28px; font:normal clamp(36px,6vw,72px)/1.12 var(--font-serif),Georgia,serif; }.reducedDetails { display:flex; flex-direction:column; align-items:center; gap:20px; }.reducedDetails .finalBody,.reducedDetails .finalKicker,.reducedDetails .finalSubtitle,.reducedDetails .finalActions,.reducedDetails .finalNote { position:static; }.reducedDetails .finalActions { display:flex; }.reducedDetails .finalSubtitle { margin:0; }
+}
+

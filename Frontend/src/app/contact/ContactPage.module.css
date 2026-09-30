@@ -1,0 +1,41 @@
+.page { min-height: 100vh; background: #fcfaf5; color: #031926; }
+.main { padding: 140px 24px 115px; }
+.shell { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); align-items: start; gap: 72px; max-width: 1190px; margin: 0 auto; }
+.eyebrow, .formEyebrow { color: #468189; font: 700 10px Arial, sans-serif; letter-spacing: .18em; }
+.intro { padding-top: 27px; }
+.intro h1 { margin: 24px 0 22px; font: 400 clamp(55px, 5.5vw, 77px)/1.08 Georgia, serif; letter-spacing: -.055em; }
+.intro h1 em { color: #468189; }
+.intro > p { max-width: 490px; margin: 0; color: #587279; font: 400 17px/1.68 Arial, sans-serif; }
+.sequence { display: flex; flex-direction: column; margin-top: 66px; border-top: 1px solid #cbded1; }
+.sequence > div { display: grid; grid-template-columns: 34px minmax(0,1fr); column-gap: 13px; padding: 20px 0; border-bottom: 1px solid #cbded1; }
+.sequence span { grid-row: span 2; padding-top: 4px; color: #81a29d; font: 700 10px Arial, sans-serif; }
+.sequence strong { font: 500 23px/1.2 Georgia, serif; }
+.sequence p { margin: 6px 0 0; color: #667c80; font: 400 13px/1.5 Arial, sans-serif; }
+.direct { display: flex; align-items: center; gap: 10px; margin-top: 33px; color: #648080; font: 500 12px Arial, sans-serif; }
+.direct svg { color: #468189; }
+.direct a { color: #326c74; text-underline-offset: 3px; }
+.formCard { overflow: hidden; border: 1px solid #c7dbce; border-radius: 18px; background: #fffefa; box-shadow: 0 28px 48px rgba(3, 25, 38, .085); }
+.formTop { display: flex; align-items: center; gap: 8px; min-height: 55px; padding: 0 25px; border-bottom: 1px solid #dbe7db; background: #e9f2e9; color: #326c74; font: 700 9px Arial, sans-serif; letter-spacing: .16em; }
+.formTop > span:last-child { margin-left: auto; color: #7fa09b; }
+.formDot { width: 7px; height: 7px; border-radius: 50%; background: #468189; }
+.formCard form { padding: 35px 34px 31px; }
+.formCard h2 { margin: 11px 0 8px; font: 400 37px/1.16 Georgia, serif; letter-spacing: -.04em; }
+.formLead { margin: 0 0 25px; color: #667e80; font: 400 13px/1.55 Arial, sans-serif; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 17px 15px; }
+.fields label { display: flex; flex-direction: column; gap: 7px; color: #45676c; font: 700 10px Arial, sans-serif; letter-spacing: .04em; }
+.fields input, .fields select, .fields textarea { min-width: 0; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #cbdcd0; border-radius: 8px; outline: none; background: #fff; color: #16323b; font: 400 12px Arial, sans-serif; letter-spacing: 0; }
+.fields textarea { resize: vertical; line-height: 1.5; }
+.fields input:focus, .fields select:focus, .fields textarea:focus { border-color: #468189; box-shadow: 0 0 0 3px rgba(119, 172, 162, .18); }
+.fields input::placeholder, .fields textarea::placeholder { color: #96aaa8; }
+.fullField { grid-column: 1 / -1; }
+.submit { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; width: 100%; margin-top: 24px; padding: 0 17px; border: 0; border-radius: 8px; background: #468189; color: #fff; cursor: pointer; text-decoration: none; font: 700 12px Arial, sans-serif; }
+.submit:hover { background: #326c74; }
+.formNote { margin: 13px 0 0; color: #879d99; text-align: center; font: 400 10px Arial, sans-serif; }
+.ready { display: flex; flex-direction: column; align-items: flex-start; min-height: 510px; padding: 55px 40px; }
+.readyIcon { display: grid; place-items: center; width: 60px; height: 60px; margin-bottom: 28px; border: 1px solid #b9d6c3; border-radius: 50%; background: #e8f4e9; color: #468189; }
+.ready > p { max-width: 475px; margin: 8px 0 12px; color: #5b757b; font: 400 15px/1.65 Arial, sans-serif; }
+.ready .submit { width: fit-content; margin-top: 24px; }
+.restart { display: inline-flex; align-items: center; gap: 6px; margin-top: 20px; padding: 0; border: 0; background: transparent; color: #468189; cursor: pointer; font: 700 11px Arial, sans-serif; }
+.page a:focus-visible, .page button:focus-visible { outline: 3px solid #77aca2; outline-offset: 3px; }
+@media (max-width: 900px) { .shell { grid-template-columns: 1fr; gap: 55px; } .intro { padding-top: 0; } .sequence { max-width: 610px; margin-top: 38px; } }
+@media (max-width: 600px) { .main { padding: 110px 16px 80px; } .intro h1 { font-size: clamp(45px, 10vw, 61px); } .intro > p { font-size: 15px; } .formCard form { padding: 28px 22px; } .formTop { padding: 0 18px; font-size: 8px; } .fields { grid-template-columns: 1fr; } .ready { min-height: 0; padding: 35px 26px; } }

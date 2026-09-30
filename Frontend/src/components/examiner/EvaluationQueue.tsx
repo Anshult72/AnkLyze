@@ -2,8 +2,9 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, Filter, ArrowUpRight, CheckCircle2, AlertCircle, Clock, ShieldAlert } from "lucide-react";
+import { Search, ArrowUpRight } from "lucide-react";
 import { EvaluationQueueScript, ScriptStatus, RiskLevel } from "@/data/examinerMockData";
+import styles from "@/app/examiner/ExaminerPages.module.css";
 
 interface EvaluationQueueProps {
   scripts: EvaluationQueueScript[];
@@ -89,21 +90,21 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
   };
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+    <div className={`${styles.dataPanel} bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden`}>
       
       {/* Header and Controls */}
       <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-              My Evaluation Queue
+            <h2 id="evaluation-queue-heading" className="font-serif text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              Assigned scripts
             </h2>
             <span className="text-xs font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
-              {filteredScripts.length} of {scripts.length} Scripts
+              {filteredScripts.length} of {scripts.length}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Prioritized evaluation stream with preliminary AI step-marks &amp; confidence ratings
+            Choose a script to continue marking.
           </p>
         </div>
 
@@ -178,10 +179,10 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
             <tr>
               <th scope="col" className="px-5 py-3.5 font-bold">Script ID</th>
               <th scope="col" className="px-4 py-3.5 font-bold">Status</th>
-              <th scope="col" className="px-4 py-3.5 font-bold">AI Preliminary</th>
+              <th scope="col" className="px-4 py-3.5 font-bold">Answers read</th>
               <th scope="col" className="px-4 py-3.5 font-bold">Confidence</th>
               <th scope="col" className="px-4 py-3.5 font-bold">Risk Level</th>
-              <th scope="col" className="px-4 py-3.5 font-bold">Estimated Time</th>
+              <th scope="col" className="px-4 py-3.5 font-bold">Updated</th>
               <th scope="col" className="px-5 py-3.5 text-right font-bold">Action</th>
             </tr>
           </thead>
@@ -204,7 +205,7 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
                       {script.scriptId}
                     </span>
                     <span className="block text-[10px] text-slate-400 font-mono">
-                      Q1 - Q10 Complete
+                      {script.priorityNote ?? `${script.detectedAnswers} of ${script.totalAnswers} answers detected`}
                     </span>
                   </td>
 
@@ -213,12 +214,12 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
                     {getStatusBadge(script.status)}
                   </td>
 
-                  {/* AI Score */}
+                  {/* Scan coverage */}
                   <td className="px-4 py-3.5 whitespace-nowrap">
                     <span className="font-mono font-bold text-slate-900 text-sm">
-                      {script.status === "AI Ready" ? "71.5" : script.status === "Needs Review" ? "58.0" : "46.5"}
+                      {script.detectedAnswers}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono ml-0.5">/ 100</span>
+                    <span className="text-[10px] text-slate-400 font-mono ml-0.5">/ {script.totalAnswers}</span>
                   </td>
 
                   {/* Confidence Meter */}
@@ -247,10 +248,9 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
                     {getRiskBadge(script.riskLevel)}
                   </td>
 
-                  {/* Estimated Time */}
-                  <td className="px-4 py-3.5 whitespace-nowrap text-slate-500 flex items-center space-x-1 pt-4">
-                    <Clock className="w-3 h-3 text-slate-400" />
-                    <span>{script.riskLevel === "High Risk" ? "~7 mins" : script.riskLevel === "Medium Risk" ? "~5 mins" : "~3 mins"}</span>
+                  {/* Last update */}
+                  <td className="px-4 py-3.5 whitespace-nowrap text-slate-500">
+                    {script.updatedAt}
                   </td>
 
                   {/* Action */}
@@ -283,8 +283,8 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
 
       {/* Footer Summary */}
       <div className="p-4 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
-        <span>Batch: <strong className="font-mono text-slate-800">CS-301</strong> (Semester End Assessment)</span>
-        <span>Auto-sorted by priority &amp; risk score</span>
+        <span>Batch: <strong className="font-mono text-slate-800">CS-301</strong></span>
+        <span>{filteredScripts.length} shown</span>
       </div>
 
     </div>

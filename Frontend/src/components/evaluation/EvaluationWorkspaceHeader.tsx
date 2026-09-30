@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, AlertCircle, ShieldCheck, Clock, Globe, ExternalLink } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, ShieldCheck, Globe } from "lucide-react";
 
 interface EvaluationWorkspaceHeaderProps {
   scriptId: string;
@@ -23,12 +24,11 @@ export default function EvaluationWorkspaceHeader({
   currentQuestionId,
   totalQuestions,
   isSaved,
-  onSave,
 }: EvaluationWorkspaceHeaderProps) {
   const currentNum = parseInt(currentQuestionId.replace("Q", ""), 10) || 4;
 
   return (
-    <header className="sticky top-0 z-30 bg-white text-slate-900 border-b border-slate-200/90 shadow-xs">
+    <header className="workspace-review-header sticky top-0 z-30 bg-white text-slate-900 border-b border-slate-200/90 shadow-xs">
       <div className="max-w-[1720px] mx-auto px-3 sm:px-5 lg:px-6">
         <div className="flex items-center justify-between h-14 sm:h-15 gap-2">
           
@@ -47,9 +47,7 @@ export default function EvaluationWorkspaceHeader({
 
             {/* ANKLYZE Brand Token & Script ID */}
             <div className="flex items-center space-x-2.5">
-              <span className="font-bold text-xs tracking-tight text-slate-800 uppercase font-mono hidden sm:inline-block">
-                ANKLYZE
-              </span>
+              <Image src="/anklyze-logo.png" alt="ANKLYZE" width={92} height={30} className="hidden sm:block w-23 h-auto object-contain" priority />
               <span className="text-slate-300 hidden sm:inline-block">•</span>
               <div className="flex items-center space-x-1.5">
                 <span className="text-xs text-slate-500 font-medium">Script ID:</span>

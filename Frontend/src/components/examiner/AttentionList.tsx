@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, HelpCircle, ChevronRight, FileText, CheckCircle } from "lucide-react";
+import { ChevronRight, CheckCircle } from "lucide-react";
 import { AttentionItem } from "@/data/examinerMockData";
+import styles from "@/app/examiner/ExaminerPages.module.css";
 
 interface AttentionListProps {
   items: AttentionItem[];
@@ -45,21 +46,21 @@ export default function AttentionList({ items }: AttentionListProps) {
   };
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+    <div className={`${styles.dataPanel} bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden`}>
       
       {/* Header */}
       <div className="p-5 border-b border-slate-100 flex items-center justify-between">
         <div>
           <div className="flex items-center space-x-2">
-            <h2 className="font-serif text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-              Needs Your Attention
+            <h2 id="attention-items-heading" className="font-serif text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              Items to review
             </h2>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold">
-              {activeItems.length} Exceptions
+              {activeItems.length} open
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Active evaluation flags requiring examiner discretion before grading finalization
+            Check the answer and decide whether the suggested mark is right.
           </p>
         </div>
       </div>
@@ -72,7 +73,7 @@ export default function AttentionList({ items }: AttentionListProps) {
               <CheckCircle className="w-5 h-5" />
             </div>
             <p className="font-semibold text-slate-900 text-sm">All attention items resolved</p>
-            <p className="text-slate-400">All scripts in current batch meet confidence threshold standards.</p>
+            <p className="text-slate-400">There are no open items in this view.</p>
           </div>
         ) : (
           activeItems.map((item) => {
@@ -100,7 +101,7 @@ export default function AttentionList({ items }: AttentionListProps) {
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sev.badge}`}
                     >
-                      {item.severity} Priority
+                      {item.severity} priority
                     </span>
                   </div>
 
@@ -123,9 +124,9 @@ export default function AttentionList({ items }: AttentionListProps) {
                     type="button"
                     onClick={(e) => handleQuickDismiss(item.id, e)}
                     className="text-xs text-slate-500 hover:text-slate-900 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors font-medium"
-                    title="Dismiss alert without modifying score"
+                    title="Hide this item for this visit"
                   >
-                    Dismiss
+                    Hide
                   </button>
 
                   <Link
@@ -146,7 +147,7 @@ export default function AttentionList({ items }: AttentionListProps) {
       {/* Footer Meta */}
       <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
         <span>Batch: <strong className="font-mono text-slate-800">CS-301</strong></span>
-        <span>Lead Examiner: <strong className="text-slate-800">Station 04</strong></span>
+        <span>{activeItems.length} open items</span>
       </div>
 
     </div>

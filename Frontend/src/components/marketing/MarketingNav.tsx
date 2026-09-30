@@ -1,240 +1,135 @@
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, Menu, X, ArrowRight, BookOpen, ExternalLink, ShieldCheck } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ArrowUpRight, BookOpenText, ChevronDown, ClipboardCheck, FilePenLine, LayoutDashboard, Menu, ScanText, ShieldCheck, X } from "lucide-react";
+import styles from "./MarketingNav.module.css";
+
+const solutions = [
+  { href: "/ai-answer-sheet-evaluation", title: "AI answer sheet evaluation", description: "A clearer first pass on every script", icon: ScanText },
+  { href: "/handwritten-answer-sheet-grading", title: "Handwritten script grading", description: "Read working, formulas and diagrams", icon: FilePenLine },
+  { href: "/subjective-answer-evaluation", title: "Subjective evaluation", description: "Consistent decisions for open answers", icon: ClipboardCheck },
+];
+
+const resources = [
+  { href: "/resources", title: "Resource hub", description: "Guides, research and useful reading", icon: BookOpenText },
+  { href: "/resources#accuracy", title: "Accuracy methodology", description: "How evaluations are verified", icon: ClipboardCheck },
+  { href: "/resources#responsible-ai", title: "Responsible AI grading", description: "The examiner stays in control", icon: ShieldCheck },
+];
+
+type OpenMenu = "solutions" | "resources" | null;
 
 export default function MarketingNav() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [solutionsOpen, setSolutionsOpen] = useState(false);
-  const [resourcesOpen, setResourcesOpen] = useState(false);
+  const pathname = usePathname();
+  const headerRef = useRef<HTMLElement>(null);
+  const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!headerRef.current?.contains(event.target as Node)) {
+        setOpenMenu(null);
+        setMobileOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenMenu(null);
+        setMobileOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  const closeAll = () => { setOpenMenu(null); setMobileOpen(false); };
+  const solutionsActive = solutions.some(item => pathname === item.href);
+  const resourcesActive = pathname === "/resources";
 
   return (
-    <header className="sticky top-4 z-50 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-gray-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.06)] px-4 sm:px-6 py-3 flex items-center justify-between">
-        
-        {/* LOGO */}
-        <Link href="/" className="flex items-center space-x-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs">
-            <span className="font-bold text-xs tracking-wider">AK</span>
-          </div>
-          <div className="flex items-baseline">
-            <span className="text-xl font-bold tracking-tight text-[#111827]">
-              ANK<span className="text-[#2563EB]">LYZE</span>
-            </span>
-            <span className="ml-1.5 text-[10px] font-mono uppercase px-1.5 py-0.2 rounded bg-blue-50 text-[#2563EB] border border-blue-200 hidden sm:inline-block font-semibold">
-              MPOnline
-            </span>
-          </div>
+    <header ref={headerRef} className={styles.header}>
+      <div className={styles.shell}>
+        <Link href="/" className={styles.brand} onClick={closeAll} aria-label="ANKLYZE home">
+          <Image src="/anklyze-logo.png" alt="" width={2172} height={724} priority className={styles.brandLogo} />
         </Link>
 
-        {/* DESKTOP NAV LINKS */}
-        <nav className="hidden lg:flex items-center space-x-1" aria-label="Main navigation">
-          
-          {/* Solutions Dropdown */}
-          <div className="relative" onMouseLeave={() => setSolutionsOpen(false)}>
-            <button
-              type="button"
-              onClick={() => setSolutionsOpen(!solutionsOpen)}
-              onMouseEnter={() => setSolutionsOpen(true)}
-              className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium text-[#4B5563] hover:text-[#111827] hover:bg-gray-50 transition-colors"
-              aria-expanded={solutionsOpen}
-            >
-              <span>Solutions</span>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
-            </button>
+        <nav className={styles.desktopNav} aria-label="Main navigation">
+          <div className={styles.navPill}>
+            <div className={styles.dropdownRoot} onMouseEnter={() => setOpenMenu("solutions")} onMouseLeave={() => setOpenMenu(null)}>
+              <button type="button" className={`${styles.navItem} ${solutionsActive ? styles.navItemActive : ""}`} aria-expanded={openMenu === "solutions"} aria-controls="solutions-menu" onClick={() => setOpenMenu(openMenu === "solutions" ? null : "solutions")}>
+                Solutions <ChevronDown size={14} className={openMenu === "solutions" ? styles.chevronOpen : ""} />
+              </button>
+              {openMenu === "solutions" && (
+                <div className={styles.dropdownZone} id="solutions-menu">
+                  <div className={styles.dropdownPanel}>
+                    <span className={styles.dropdownLabel}>EVALUATION WORKFLOWS</span>
+                    {solutions.map(({ href, title, description, icon: Icon }) => (
+                      <Link key={href} href={href} className={styles.dropdownLink} onClick={closeAll}>
+                        <span className={styles.dropdownIcon}><Icon size={17} strokeWidth={1.8} /></span>
+                        <span><strong>{title}</strong><small>{description}</small></span>
+                        <ArrowUpRight className={styles.dropdownArrow} size={15} />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
-            {solutionsOpen && (
-              <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl border border-gray-200 shadow-xl py-2 z-50 animate-in fade-in duration-100">
-                <Link
-                  href="/ai-answer-sheet-evaluation"
-                  className="block px-4 py-2.5 text-xs text-[#111827] hover:bg-blue-50/80 transition-colors"
-                >
-                  <span className="font-semibold block text-sm">AI Answer Sheet Evaluation</span>
-                  <span className="text-gray-500 text-[11px]">OCR parsing &amp; rubric evaluation</span>
-                </Link>
-                <Link
-                  href="/handwritten-answer-sheet-grading"
-                  className="block px-4 py-2.5 text-xs text-[#111827] hover:bg-blue-50/80 transition-colors"
-                >
-                  <span className="font-semibold block text-sm">Handwritten Script Grading</span>
-                  <span className="text-gray-500 text-[11px]">Complex formulas &amp; diagrams</span>
-                </Link>
-                <Link
-                  href="/subjective-answer-evaluation"
-                  className="block px-4 py-2.5 text-xs text-[#111827] hover:bg-blue-50/80 transition-colors"
-                >
-                  <span className="font-semibold block text-sm">Subjective Evaluation</span>
-                  <span className="text-gray-500 text-[11px]">Essay &amp; analytical marking</span>
-                </Link>
-              </div>
-            )}
+            <div className={styles.dropdownRoot} onMouseEnter={() => setOpenMenu("resources")} onMouseLeave={() => setOpenMenu(null)}>
+              <button type="button" className={`${styles.navItem} ${resourcesActive ? styles.navItemActive : ""}`} aria-expanded={openMenu === "resources"} aria-controls="resources-menu" onClick={() => setOpenMenu(openMenu === "resources" ? null : "resources")}>
+                Resources <ChevronDown size={14} className={openMenu === "resources" ? styles.chevronOpen : ""} />
+              </button>
+              {openMenu === "resources" && (
+                <div className={styles.dropdownZone} id="resources-menu">
+                  <div className={styles.dropdownPanel}>
+                    <span className={styles.dropdownLabel}>LEARN WITH ANKLYZE</span>
+                    {resources.map(({ href, title, description, icon: Icon }) => (
+                      <Link key={href} href={href} className={styles.dropdownLink} onClick={closeAll}>
+                        <span className={styles.dropdownIcon}><Icon size={17} strokeWidth={1.8} /></span>
+                        <span><strong>{title}</strong><small>{description}</small></span>
+                        <ArrowUpRight className={styles.dropdownArrow} size={15} />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Link href="/about" className={`${styles.navItem} ${pathname === "/about" ? styles.navItemActive : ""}`} onClick={closeAll}>About</Link>
+            <Link href="/contact" className={`${styles.navItem} ${pathname === "/contact" ? styles.navItemActive : ""}`} onClick={closeAll}>Contact</Link>
+            <Link href="/pricing" className={`${styles.navItem} ${pathname === "/pricing" ? styles.navItemActive : ""}`} onClick={closeAll}>Pricing</Link>
           </div>
-
-          {/* Resources Dropdown */}
-          <div className="relative" onMouseLeave={() => setResourcesOpen(false)}>
-            <button
-              type="button"
-              onClick={() => setResourcesOpen(!resourcesOpen)}
-              onMouseEnter={() => setResourcesOpen(true)}
-              className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium text-[#4B5563] hover:text-[#111827] hover:bg-gray-50 transition-colors"
-              aria-expanded={resourcesOpen}
-            >
-              <span>Resources</span>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
-            </button>
-
-            {resourcesOpen && (
-              <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl border border-gray-200 shadow-xl py-2 z-50 animate-in fade-in duration-100">
-                <Link
-                  href="/resources"
-                  className="block px-4 py-2.5 text-xs text-[#111827] hover:bg-blue-50/80 transition-colors"
-                >
-                  <span className="font-semibold block text-sm">Resource Hub</span>
-                  <span className="text-gray-500 text-[11px]">Whitepapers, guides &amp; studies</span>
-                </Link>
-                <Link
-                  href="/resources#accuracy"
-                  className="block px-4 py-2.5 text-xs text-[#111827] hover:bg-blue-50/80 transition-colors"
-                >
-                  <span className="font-semibold block text-sm">Accuracy Methodology</span>
-                  <span className="text-gray-500 text-[11px]">Double-blind verification &amp; benchmarks</span>
-                </Link>
-                <Link
-                  href="/resources#responsible-ai"
-                  className="block px-4 py-2.5 text-xs text-[#111827] hover:bg-blue-50/80 transition-colors"
-                >
-                  <span className="font-semibold block text-sm">Responsible AI Grading</span>
-                  <span className="text-gray-500 text-[11px]">Human-in-the-loop compliance</span>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          <Link
-            href="/about"
-            className="px-3 py-1.5 rounded-lg text-sm font-medium text-[#4B5563] hover:text-[#111827] hover:bg-gray-50 transition-colors"
-          >
-            About
-          </Link>
-
-          <Link
-            href="/contact"
-            className="px-3 py-1.5 rounded-lg text-sm font-medium text-[#4B5563] hover:text-[#111827] hover:bg-gray-50 transition-colors"
-          >
-            Contact
-          </Link>
-
-          <Link
-            href="/pricing"
-            className="px-3 py-1.5 rounded-lg text-sm font-medium text-[#4B5563] hover:text-[#111827] hover:bg-gray-50 transition-colors"
-          >
-            Pricing
-          </Link>
-
         </nav>
 
-        {/* RIGHT: CTAs */}
-        <div className="flex items-center space-x-2.5">
-          <Link
-            href="/examiner/dashboard"
-            className="hidden sm:inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#111827] bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-200"
-            title="Open Examiner Workspace Cockpit"
-          >
-            <span>Examiner Portal</span>
-            <ExternalLink className="w-3 h-3 text-gray-500" />
+        <div className={styles.actions}>
+          <Link href="/examiner/dashboard" className={styles.portalLink} title="Open Portal">
+            <LayoutDashboard size={16} strokeWidth={1.8} /> <span>Portal</span>
           </Link>
-
-          <Link
-            href="/contact?pilot=1"
-            className="hidden sm:inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] active:bg-[#1E40AF] transition-all shadow-xs"
-          >
-            <span>Start a free pilot</span>
-          </Link>
-
-          {/* Mobile Menu Hamburger */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-lg text-gray-700 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 focus:outline-none"
-            aria-label="Toggle Navigation"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          <button type="button" className={styles.menuButton} aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen} aria-controls="mobile-navigation" onClick={() => { setMobileOpen(!mobileOpen); setOpenMenu(null); }}>
+            {mobileOpen ? <X size={21} /> : <Menu size={21} />}
           </button>
         </div>
-
       </div>
 
-      {/* MOBILE DRAWER */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden mt-2 bg-white rounded-2xl border border-gray-200 shadow-xl p-4 space-y-3 animate-in fade-in duration-150">
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3">Solutions</span>
-            <Link
-              href="/ai-answer-sheet-evaluation"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-800 hover:bg-blue-50"
-            >
-              AI Answer Sheet Evaluation
-            </Link>
-            <Link
-              href="/handwritten-answer-sheet-grading"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-800 hover:bg-blue-50"
-            >
-              Handwritten Script Grading
-            </Link>
-            <Link
-              href="/subjective-answer-evaluation"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-800 hover:bg-blue-50"
-            >
-              Subjective Evaluation
-            </Link>
-          </div>
-
-          <div className="pt-2 border-t border-gray-100 space-y-1">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3">Platform</span>
-            <Link
-              href="/resources"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-800 hover:bg-blue-50"
-            >
-              Resource Hub
-            </Link>
-            <Link
-              href="/pricing"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-800 hover:bg-blue-50"
-            >
-              Pricing
-            </Link>
-            <Link
-              href="/about"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-800 hover:bg-blue-50"
-            >
-              About
-            </Link>
-            <Link
-              href="/contact"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-800 hover:bg-blue-50"
-            >
-              Contact
-            </Link>
-          </div>
-
-          <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
-            <Link
-              href="/examiner/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center py-2 px-3 rounded-lg text-xs font-semibold bg-gray-100 text-gray-900 border border-gray-200"
-            >
-              Launch Examiner Portal Cockpit
-            </Link>
-          </div>
-        </div>
+      {mobileOpen && (
+        <nav id="mobile-navigation" className={styles.mobilePanel} aria-label="Mobile navigation">
+          <span className={styles.mobileLabel}>SOLUTIONS</span>
+          {solutions.map(({ href, title }) => <Link key={href} href={href} onClick={closeAll} className={styles.mobileLink}>{title}<ArrowUpRight size={15} /></Link>)}
+          <div className={styles.mobileDivider} />
+          <span className={styles.mobileLabel}>EXPLORE</span>
+          {[
+            { href: "/resources", title: "Resources" },
+            { href: "/about", title: "About" },
+            { href: "/pricing", title: "Pricing" },
+            { href: "/contact", title: "Contact" },
+          ].map(({ href, title }) => <Link key={href} href={href} onClick={closeAll} className={styles.mobileLink}>{title}<ArrowUpRight size={15} /></Link>)}
+        </nav>
       )}
     </header>
   );

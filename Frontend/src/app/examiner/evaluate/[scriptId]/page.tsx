@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import EvaluationWorkspaceHeader from "@/components/evaluation/EvaluationWorkspaceHeader";
 import AnswerSheetViewer from "@/components/evaluation/AnswerSheetViewer";
-import EvaluationPanel from "@/components/evaluation/EvaluationPanel";
+import EvaluationPanel, { DecisionVersionItem } from "@/components/evaluation/EvaluationPanel";
 import WorkspaceBottomBar from "@/components/evaluation/WorkspaceBottomBar";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import {
   EVALUATION_DATASET_MOCK,
   AVAILABLE_QUESTIONS,
-  EvaluationWorkspaceData,
   getScriptDataset,
 } from "@/data/evaluationWorkspaceMockData";
 import { Eye, SlidersHorizontal, CheckCircle, ArrowLeft } from "lucide-react";
@@ -21,9 +21,7 @@ export default function ExaminerEvaluationWorkspacePage() {
   const scriptIdParam = (params?.scriptId as string) || "A-10492";
 
   // State: Current dataset for this script
-  const [dataset, setDataset] = useState<EvaluationWorkspaceData>(() =>
-    getScriptDataset(scriptIdParam)
-  );
+  const dataset = getScriptDataset(scriptIdParam);
   const [currentQuestionId, setCurrentQuestionId] = useState<string>("Q04");
   const [currentPage, setCurrentPage] = useState<number>(4);
   const [mobileMode, setMobileMode] = useState<"sheet" | "evaluation">("sheet");
@@ -34,6 +32,53 @@ export default function ExaminerEvaluationWorkspacePage() {
     Q02: 4.0,
     Q03: 4.5,
     Q04: 5.0,
+  });
+
+  // State: Decision status per question (DRAFT vs FINAL)
+  const [decisionStatuses, setDecisionStatuses] = useState<Record<string, "DRAFT" | "FINAL">>({
+    Q01: "FINAL",
+    Q02: "FINAL",
+    Q03: "FINAL",
+    Q04: "DRAFT",
+  });
+
+  // State: Versioned history records
+  const [decisionHistories, setDecisionHistories] = useState<Record<string, DecisionVersionItem[]>>({
+    Q04: [
+      {
+        id: "dec-v1-init",
+        version: 1,
+        decisionType: "ACCEPT_AI_SUGGESTION",
+        status: "DRAFT",
+        totalMarks: 4.0,
+        maxMarks: 7.0,
+        examinerName: "Prof. Anshul Tripathi",
+        timestamp: "2026-01-15T08:42:00.000Z",
+        notes: "Initial AI suggestion accepted",
+      },
+      {
+        id: "dec-v2-override",
+        version: 2,
+        decisionType: "OVERRIDE_AI",
+        status: "DRAFT",
+        totalMarks: 5.0,
+        maxMarks: 7.0,
+        examinerName: "Prof. Anshul Tripathi",
+        timestamp: "2026-01-15T09:12:00.000Z",
+        overrideReason: "Partial credit applied according to rubric for phasor diagram steps",
+        diff: {
+          totalMarks: { before: 4.0, after: 5.0 },
+          criteriaChanged: [
+            {
+              criterionId: "crit-2",
+              criterionName: "EMF Derivation Steps",
+              before: 1.0,
+              after: 2.0,
+            },
+          ],
+        },
+      },
+    ],
   });
 
   // State: Flagged questions map
@@ -47,13 +92,6 @@ export default function ExaminerEvaluationWorkspacePage() {
   // State: Auto-save tracking & Toast message
   const [isSaved, setIsSaved] = useState<boolean>(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Sync dataset with param if changed
-  useEffect(() => {
-    if (scriptIdParam) {
-      setDataset(getScriptDataset(scriptIdParam));
-    }
-  }, [scriptIdParam]);
 
   // Find active question object
   const currentQuestion =
@@ -130,10 +168,96 @@ export default function ExaminerEvaluationWorkspacePage() {
     setIsSaved(false);
   };
 
-  // Handle Save / Commit
+  // Handle Save / Commit Draft
   const handleSave = () => {
+    const historyList = decisionHistories[currentQuestionId] || [];
+    const newVersionNum = historyList.length + 1;
+    const currentScore = evaluatedScores[currentQuestionId] ?? currentQuestion.aiSuggestedMarks;
+
+    const newRecord: DecisionVersionItem = {
+      id: `dec-${scriptIdParam}-${currentQuestionId}-v${newVersionNum}`,
+      version: newVersionNum,
+      decisionType: "SAVE_DRAFT",
+      status: "DRAFT",
+      totalMarks: currentScore,
+      maxMarks: currentQuestion.maxMarks,
+      examinerName: "Prof. Anshul Tripathi",
+      timestamp: new Date().toISOString(),
+      notes: "Draft updated by examiner",
+    };
+
+    setDecisionHistories((prev) => ({
+      ...prev,
+      [currentQuestionId]: [...(prev[currentQuestionId] || []), newRecord],
+    }));
+
     setIsSaved(true);
-    showToast(`Evaluation progress saved for script ${dataset.scriptId}`);
+    showToast(`Saved draft version v${newVersionNum} for ${currentQuestionId}`);
+  };
+
+  // Handle Explicit Finalization
+  const handleFinalize = () => {
+    const historyList = decisionHistories[currentQuestionId] || [];
+    const newVersionNum = historyList.length + 1;
+    const currentScore = evaluatedScores[currentQuestionId] ?? currentQuestion.aiSuggestedMarks;
+
+    const finalizeRecord: DecisionVersionItem = {
+      id: `dec-v${newVersionNum}-final`,
+      version: newVersionNum,
+      decisionType: "FINALIZE",
+      status: "FINAL",
+      totalMarks: currentScore,
+      maxMarks: currentQuestion.maxMarks,
+      examinerName: "Prof. Anshul Tripathi",
+      timestamp: new Date().toISOString(),
+      notes: "Authoritative examiner decision confirmed and finalized.",
+    };
+
+    setDecisionHistories((prev) => ({
+      ...prev,
+      [currentQuestionId]: [...(prev[currentQuestionId] || []), finalizeRecord],
+    }));
+
+    setDecisionStatuses((prev) => ({
+      ...prev,
+      [currentQuestionId]: "FINAL",
+    }));
+
+    setIsSaved(true);
+    showToast(`Authoritative decision FINALIZED for ${currentQuestionId} (${currentScore} / ${currentQuestion.maxMarks} marks)`);
+  };
+
+  // Handle Reopening Finalized Decision
+  const handleReopen = (reason: string) => {
+    const historyList = decisionHistories[currentQuestionId] || [];
+    const newVersionNum = historyList.length + 1;
+    const currentScore = evaluatedScores[currentQuestionId] ?? currentQuestion.aiSuggestedMarks;
+
+    const reopenRecord: DecisionVersionItem = {
+      id: `dec-v${newVersionNum}-reopen`,
+      version: newVersionNum,
+      decisionType: "REOPEN",
+      status: "DRAFT",
+      totalMarks: currentScore,
+      maxMarks: currentQuestion.maxMarks,
+      examinerName: "Prof. Anshul Tripathi",
+      timestamp: new Date().toISOString(),
+      reopenReason: reason,
+      notes: `Reopened for revision: ${reason}`,
+    };
+
+    setDecisionHistories((prev) => ({
+      ...prev,
+      [currentQuestionId]: [...(prev[currentQuestionId] || []), reopenRecord],
+    }));
+
+    setDecisionStatuses((prev) => ({
+      ...prev,
+      [currentQuestionId]: "DRAFT",
+    }));
+
+    setIsSaved(false);
+    showToast(`Decision REOPENED for ${currentQuestionId} under draft version v${newVersionNum}`);
   };
 
   // Helper: Temporary Toast Banner
@@ -141,7 +265,7 @@ export default function ExaminerEvaluationWorkspacePage() {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
-    }, 2800);
+    }, 3200);
   };
 
   const currentAwardedMarks =
@@ -150,116 +274,124 @@ export default function ExaminerEvaluationWorkspacePage() {
       : currentQuestion.aiSuggestedMarks;
 
   const isCurrentFlagged = !!flaggedQuestions[currentQuestionId]?.flagged;
+  const currentDecisionStatus = decisionStatuses[currentQuestionId] || "DRAFT";
+  const currentDecisionHistory = decisionHistories[currentQuestionId] || [];
 
   return (
-    <div className="min-h-screen bg-[#FCFAF5] text-slate-900 flex flex-col font-sans selection:bg-amber-200 selection:text-slate-900">
-      
-      {/* 1. TOP WORKSPACE HEADER */}
-      <EvaluationWorkspaceHeader
-        scriptId={dataset.scriptId}
-        examination={`${dataset.examination} • ${dataset.semester}`}
-        subject={dataset.subject}
-        subjectCode={dataset.subjectCode}
-        currentQuestionId={currentQuestionId}
-        totalQuestions={dataset.totalQuestions}
-        isSaved={isSaved}
-        onSave={handleSave}
-      />
+    <ProtectedRoute allowedRoles={["EXAMINER", "HEAD_EXAMINER", "SUPER_ADMIN"]}>
+      <div className="workspace-shell min-h-screen bg-[#FCFAF5] text-slate-900 flex flex-col font-sans selection:bg-[#c5ddd4] selection:text-slate-900">
 
-      {/* MOBILE SEGMENTED MODE SWITCH */}
-      <div className="lg:hidden bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between gap-2 shrink-0">
-        <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 w-full text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setMobileMode("sheet")}
-            className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center space-x-1.5 ${
-              mobileMode === "sheet"
-                ? "bg-white text-blue-600 shadow-2xs font-bold"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Answer Sheet (Page {currentPage})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileMode("evaluation")}
-            className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center space-x-1.5 ${
-              mobileMode === "evaluation"
-                ? "bg-white text-blue-600 shadow-2xs font-bold"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Evaluation ({currentQuestionId}: {currentAwardedMarks.toFixed(1)}/7)</span>
-          </button>
+        {/* 1. TOP WORKSPACE HEADER */}
+        <EvaluationWorkspaceHeader
+          scriptId={dataset.scriptId}
+          examination={`${dataset.examination} • ${dataset.semester}`}
+          subject={dataset.subject}
+          subjectCode={dataset.subjectCode}
+          currentQuestionId={currentQuestionId}
+          totalQuestions={dataset.totalQuestions}
+          isSaved={isSaved}
+          onSave={handleSave}
+        />
+
+        {/* MOBILE SEGMENTED MODE SWITCH */}
+        <div className="lg:hidden bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between gap-2 shrink-0">
+          <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 w-full text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setMobileMode("sheet")}
+              className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center space-x-1.5 ${
+                mobileMode === "sheet"
+                  ? "bg-white text-blue-600 shadow-2xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Answer Sheet (Page {currentPage})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileMode("evaluation")}
+              className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center space-x-1.5 ${
+                mobileMode === "evaluation"
+                  ? "bg-white text-blue-600 shadow-2xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Evaluation ({currentQuestionId}: {currentAwardedMarks.toFixed(1)}/7)</span>
+            </button>
+          </div>
         </div>
+
+        {/* 2. MAIN SPLIT WORKSPACE BODY */}
+        <main className="flex-1 max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4 flex flex-col min-h-0">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-stretch min-h-[calc(100vh-140px)]">
+
+            {/* LEFT: ANSWER SHEET VIEWER (58% width on desktop) */}
+            <div
+              className={`lg:col-span-7 xl:col-span-7 h-full min-h-[580px] lg:min-h-0 ${
+                mobileMode === "evaluation" ? "hidden lg:flex" : "flex"
+              } flex-col`}
+            >
+              <AnswerSheetViewer
+                question={currentQuestion}
+                currentPage={currentPage}
+                totalPages={dataset.totalPages}
+                onPageChange={(page) => setCurrentPage(page)}
+                activeEvidenceKey={activeEvidenceKey}
+                onSelectEvidence={(key) => setActiveEvidenceKey(key)}
+              />
+            </div>
+
+            {/* RIGHT: EVALUATION PANEL (42% width on desktop) */}
+            <div
+              className={`lg:col-span-5 xl:col-span-5 h-full min-h-[580px] lg:min-h-0 ${
+                mobileMode === "sheet" ? "hidden lg:flex" : "flex"
+              } flex-col`}
+            >
+              <EvaluationPanel
+                question={currentQuestion}
+                examinerMarks={currentAwardedMarks}
+                onMarksChange={handleMarksChange}
+                isFlagged={isCurrentFlagged}
+                onToggleFlag={handleToggleFlag}
+                onAcceptSuggestion={handleAcceptSuggestion}
+                activeEvidenceKey={activeEvidenceKey}
+                onSelectEvidence={(key) => setActiveEvidenceKey(key)}
+                onSave={handleSave}
+                decisionStatus={currentDecisionStatus}
+                onFinalize={handleFinalize}
+                onReopen={handleReopen}
+                decisionHistory={currentDecisionHistory}
+              />
+            </div>
+
+          </div>
+        </main>
+
+        {/* 3. STICKY BOTTOM ACTION BAR */}
+        <WorkspaceBottomBar
+          currentQuestionId={currentQuestionId}
+          totalQuestions={dataset.totalQuestions}
+          onSelectQuestion={handleSelectQuestion}
+          onPreviousQuestion={handlePreviousQuestion}
+          onNextQuestion={handleNextQuestion}
+          isSaved={isSaved}
+          onSave={handleSave}
+          awardedMarks={currentAwardedMarks}
+          maxMarks={currentQuestion.maxMarks}
+          isFlagged={isCurrentFlagged}
+        />
+
+        {/* TOAST NOTIFICATION */}
+        {toastMessage && (
+          <div className="fixed bottom-16 right-4 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-xl border border-slate-800 flex items-center space-x-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
       </div>
-
-      {/* 2. MAIN SPLIT WORKSPACE BODY */}
-      <main className="flex-1 max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-4 flex flex-col min-h-0">
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-stretch min-h-[calc(100vh-140px)]">
-          
-          {/* LEFT: ANSWER SHEET VIEWER (58% width on desktop) */}
-          <div
-            className={`lg:col-span-7 xl:col-span-7 h-full min-h-[580px] lg:min-h-0 ${
-              mobileMode === "evaluation" ? "hidden lg:flex" : "flex"
-            } flex-col`}
-          >
-            <AnswerSheetViewer
-              question={currentQuestion}
-              currentPage={currentPage}
-              totalPages={dataset.totalPages}
-              onPageChange={(page) => setCurrentPage(page)}
-              activeEvidenceKey={activeEvidenceKey}
-              onSelectEvidence={(key) => setActiveEvidenceKey(key)}
-            />
-          </div>
-
-          {/* RIGHT: EVALUATION PANEL (42% width on desktop) */}
-          <div
-            className={`lg:col-span-5 xl:col-span-5 h-full min-h-[580px] lg:min-h-0 ${
-              mobileMode === "sheet" ? "hidden lg:flex" : "flex"
-            } flex-col`}
-          >
-            <EvaluationPanel
-              question={currentQuestion}
-              examinerMarks={currentAwardedMarks}
-              onMarksChange={handleMarksChange}
-              isFlagged={isCurrentFlagged}
-              onToggleFlag={handleToggleFlag}
-              onAcceptSuggestion={handleAcceptSuggestion}
-              activeEvidenceKey={activeEvidenceKey}
-              onSelectEvidence={(key) => setActiveEvidenceKey(key)}
-              onSave={handleSave}
-            />
-          </div>
-
-        </div>
-      </main>
-
-      {/* 3. STICKY BOTTOM ACTION BAR */}
-      <WorkspaceBottomBar
-        currentQuestionId={currentQuestionId}
-        totalQuestions={dataset.totalQuestions}
-        onSelectQuestion={handleSelectQuestion}
-        onPreviousQuestion={handlePreviousQuestion}
-        onNextQuestion={handleNextQuestion}
-        isSaved={isSaved}
-        onSave={handleSave}
-        awardedMarks={currentAwardedMarks}
-        maxMarks={currentQuestion.maxMarks}
-        isFlagged={isCurrentFlagged}
-      />
-
-      {/* TOAST NOTIFICATION */}
-      {toastMessage && (
-        <div className="fixed bottom-16 right-4 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-xl border border-slate-800 flex items-center space-x-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
-          <CheckCircle className="w-4 h-4 text-emerald-400" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-    </div>
+    </ProtectedRoute>
   );
 }

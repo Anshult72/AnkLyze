@@ -1,0 +1,68 @@
+.sidebar{position:fixed;z-index:70;inset:0 auto 0 0;width:296px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding:23px 15px 16px;background:#fffefa;border-right:1px solid #d7e5df;box-shadow:11px 0 34px #06283409;color:#062834}
+.brandRow{display:flex;align-items:center;justify-content:space-between;min-height:70px;padding:0 8px}
+.brand{display:flex;align-items:center;width:210px;height:70px;overflow:hidden}
+.brand img,.mobileBrand img{width:100%;height:auto;object-fit:contain}
+.closeButton{display:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #d6e5df;border-radius:9px;background:#fffefa;color:#062834;cursor:pointer}
+.navigation{display:flex;flex:1;flex-direction:column;gap:18px;margin-top:28px}
+.navGroup{display:flex;flex-direction:column;gap:4px}
+.navLink{position:relative;display:flex;align-items:center;gap:12px;min-height:50px;padding:0 13px;border:1px solid transparent;border-radius:10px;color:#486167;text-decoration:none;font:600 15px Arial,sans-serif;transition:background-color .18s,color .18s,transform .18s}
+.navLink svg{flex:none;color:#6f9697}
+.navLink:hover{background:#edf5f1;color:#062834;transform:translateX(2px)}
+.navLinkActive{background:#062834;color:white;box-shadow:0 6px 13px #06283422}
+.navLinkActive svg,.navLinkActive:hover{color:white}
+.navLinkActive:hover{background:#123f48}
+.activeMark{position:absolute;right:12px;width:5px;height:5px;border-radius:50%;background:#a4d1c4}
+.sidebarBottom{display:flex;flex-direction:column;gap:9px;margin-top:25px;padding-top:16px;border-top:1px solid #e5eee9}
+.utility{position:relative}
+.accountButton{display:flex;align-items:center;width:100%;min-height:43px;gap:10px;padding:6px 10px;border:1px solid #e0ebe6;border-radius:10px;background:#f6f9f5;color:#36545b;text-align:left;font:600 12px Arial,sans-serif;cursor:pointer;transition:border-color .18s,background-color .18s}
+.accountButton:hover,.utilityButtonOpen{background:#edf5f1;border-color:#bcd9d1}
+.accountButton>svg:last-child{margin-left:auto;flex:none;color:#779195;transition:transform .18s}
+.chevronOpen{transform:rotate(180deg)}
+.utilityPanel{margin:7px 0 0;padding:9px;border:1px solid #dbe9e2;border-radius:10px;background:#fffefa;box-shadow:0 10px 24px #0628340c}
+.utilityPanel p{display:flex;gap:7px;margin:0;padding:8px 1px;border-top:1px solid #edf2ee;color:#52686d;font:11px/1.4 Arial,sans-serif}
+.utilityPanel p span{flex:none;color:#78a8a2;font:700 10px Arial,sans-serif}
+.avatar{display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:9px;background:#468189;color:#fff;font:700 13px Arial,sans-serif}
+.accountText{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}
+.accountText strong{overflow:hidden;color:#062834;text-overflow:ellipsis;white-space:nowrap;font:700 13px Arial,sans-serif}
+.accountText small{overflow:hidden;color:#789194;text-overflow:ellipsis;white-space:nowrap;font:700 9px Arial,sans-serif;letter-spacing:.06em}
+.utilityPanel .accountDetail{align-items:flex-start;overflow-wrap:anywhere}
+.accountDetail svg{flex:none;color:#468189}
+.logoutButton{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;margin-top:4px;padding:0 8px;border:0;border-radius:7px;background:#f8ece9;color:#9a493c;text-align:left;font:700 11px Arial,sans-serif;cursor:pointer}
+.logoutButton:hover{background:#f2dfd9}
+.mobileBar{display:none}
+.backdrop{display:none}
+.sidebar :is(a,button):focus-visible,.mobileBar :is(a,button):focus-visible{outline:3px solid #77aca2;outline-offset:3px}
+
+.compactLogo{display:none}
+.navLabel{white-space:nowrap}
+@media(min-width:1280px){
+  .sidebar{width:88px;padding:23px 14px 16px;transition:width .24s ease,box-shadow .24s ease}
+  .sidebar:is(:hover,:has(:focus-visible)){width:296px;box-shadow:14px 0 36px #06283419}
+  .brandRow{padding:0;position:relative;justify-content:flex-start}
+  .brand{position:relative;width:100%;height:70px}
+  .brand .compactLogo{display:block;width:48px;height:48px;position:absolute;left:5px;object-fit:contain}
+  .brand .fullLogo{position:absolute;left:10px;width:210px;max-width:none;opacity:0;visibility:hidden;transition:opacity .18s ease}
+  .sidebar:is(:hover,:has(:focus-visible)) .compactLogo{display:none}
+  .sidebar:is(:hover,:has(:focus-visible)) .fullLogo{opacity:1;visibility:visible}
+  .navLink{padding:0 17px;gap:14px;overflow:hidden}
+  .navLabel,.accountText,.accountButton>svg{opacity:0;visibility:hidden;transition:opacity .16s ease;flex-shrink:0}
+  .activeMark{display:none}
+  .sidebar:is(:hover,:has(:focus-visible)) :is(.navLabel,.accountText,.accountButton>svg){opacity:1;visibility:visible}
+  .sidebar:is(:hover,:has(:focus-visible)) .activeMark{display:block}
+  .accountButton{padding:7px 13px;gap:12px;overflow:hidden}
+  .accountText{width:174px;flex-shrink:1}
+  .sidebar:not(:hover):not(:has(:focus-visible)) .utilityPanel{display:none}
+}
+
+@media(max-width:1279px){
+  .sidebar{width:min(310px,calc(100vw - 44px));transform:translateX(-105%);transition:transform .25s ease;box-shadow:18px 0 50px #06283424}
+  .sidebarOpen{transform:translateX(0)}
+  .closeButton{display:flex}
+  .backdrop{position:fixed;z-index:60;inset:0;display:block;width:100%;border:0;background:#061e27a1;cursor:pointer}
+  .mobileBar{position:sticky;z-index:50;top:0;display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 18px;border-bottom:1px solid #d7e5df;background:#fffefaee;backdrop-filter:blur(16px)}
+  .menuButton{display:grid;place-items:center;width:39px;height:39px;border:1px solid #d7e5df;border-radius:9px;background:#fffefa;color:#062834;cursor:pointer}
+  .mobileBrand{display:flex;align-items:center;width:128px;height:43px;overflow:hidden}
+  .mobileRole{margin-left:auto;color:#468189;font:700 10px Arial,sans-serif;letter-spacing:.15em}
+}
+@media(max-width:480px){.mobileBar{padding:8px 13px}.mobileRole{font-size:9px}}
+@media(prefers-reduced-motion:reduce){.sidebar,.navLink{transition:none}}

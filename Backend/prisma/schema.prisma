@@ -1,0 +1,1496 @@
+// ==============================================================================
+// ANKLYZE Database Schema (Prisma ORM)
+// "Analyse the marks, not just the paper."
+// ==============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------------------------
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ExamStatus {
+  DRAFT
+  ACTIVE
+  EVALUATION_IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+// ------------------------------------------------------------------------------
+// Models: Core Foundation & Identity
+// ------------------------------------------------------------------------------
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // "SUPER_ADMIN", "HEAD_EXAMINER", "EXAMINER", "MODERATOR"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           String            @id @default(uuid())
+  email        String            @unique
+  passwordHash String
+  fullName     String
+  status       UserStatus        @default(ACTIVE)
+  roleId       String
+  role         Role              @relation(fields: [roleId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  department   String?
+  institution  String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  sessions            AuthSession[]
+  auditLogs           AuthAuditRecord[]
+  createdExams        Exam[]               @relation("ExamCreator")
+  createdSchemes      MarkingScheme[]      @relation("SchemeCreator")
+  assignedExaminers   ExaminerAssignment[] @relation("AssignedExaminer")
+  createdAssignments  ExaminerAssignment[] @relation("AssignmentCreator")
+  approvedRubrics     RubricAnalysis[]     @relation("RubricApprover")
+  createdBatches      ScriptBatch[]        @relation("BatchCreator")
+  uploadedScripts     AnswerScript[]       @relation("ScriptUploader")
+  resolvedAttempts    QuestionAttempt[]    @relation("AttemptResolver")
+  evaluationDecisions Evaluation[]         @relation("EvaluationExaminer")
+  humanEvaluationDecisions ExaminerEvaluationDecision[] @relation("ExaminerDecisionMaker")
+  assignedEvaluationRounds EvaluationRound[] @relation("RoundEvaluator")
+  assignedModerationCases ModerationCase[] @relation("CaseModerator")
+  moderationDecisions     ModerationDecision[] @relation("ModerationDecisionUser")
+  calibrationSessions     CalibrationSession[] @relation("EvaluatorCalibrationSession")
+  driftObservations       EvaluatorDriftObservation[] @relation("EvaluatorDriftUser")
+  approvedResults         ExaminationResult[]  @relation("ResultApprover")
+  requestedRevaluations   RevaluationRequest[] @relation("RevaluationRequester")
+  reviewedRevaluations    RevaluationRequest[] @relation("RevaluationReviewer")
+
+  @@index([roleId])
+  @@index([email])
+  @@map("users")
+}
+
+model AuthSession {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model AuthAuditRecord {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  event     String   // LOGIN_SUCCESS, LOGIN_FAILURE, LOGOUT, EXAM_CREATED, etc.
+  ipAddress String?
+  userAgent String?
+  details   String?  // Sanitized context data (no secrets)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([event])
+  @@index([createdAt])
+  @@map("auth_audit_records")
+}
+
+// ------------------------------------------------------------------------------
+// Models: Examination Management, Question Paper & Marking Scheme (Phase 5)
+// ------------------------------------------------------------------------------
+
+model Exam {
+  id               String               @id @default(uuid())
+  title            String               // e.g. "B.Tech CSE Semester III Assessment"
+  code             String               @unique // e.g. "EXAM-2026-W-CS3"
+  academicTerm     String               // e.g. "Winter Session 2025-26"
+  academicYear     String?              // e.g. "2025-2026"
+  semester         String?              // e.g. "Semester III"
+  description      String?
+  institution      String               // e.g. "MP State Board of Technical Examinations"
+  status           ExamStatus           @default(DRAFT)
+  startDate        DateTime?
+  endDate          DateTime?
+  totalMarks       Int                  @default(100)
+  partialMarking   Boolean              @default(true)
+  negativeMarking  Boolean              @default(false)
+  anonymityEnabled Boolean              @default(true)
+  isArchived       Boolean              @default(false)
+
+  createdById      String?
+  createdBy        User?                @relation("ExamCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  subjects         Subject[]
+  assignments      ExaminerAssignment[]
+  scriptBatches    ScriptBatch[]
+  scripts          AnswerScript[]
+  calibrationSets  CalibrationSet[]
+  results          ExaminationResult[]
+
+  @@index([status])
+  @@index([createdById])
+  @@map("exams")
+}
+
+model Subject {
+  id               String               @id @default(uuid())
+  name             String               // e.g. "Engineering Mathematics III"
+  code             String               // e.g. "CS-301"
+  description      String?
+  maxMarks         Int                  @default(100)
+  examId           String
+  exam             Exam                 @relation(fields: [examId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  isArchived       Boolean              @default(false)
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  questions        Question[]
+  markingSchemes   MarkingScheme[]
+  assignments      ExaminerAssignment[]
+  scriptBatches    ScriptBatch[]
+  scripts          AnswerScript[]
+  calibrationSets  CalibrationSet[]
+  results          ExaminationResult[]
+
+  @@unique([examId, code])
+  @@index([examId])
+  @@map("subjects")
+}
+
+model Question {
+  id               String               @id @default(uuid())
+  subjectId        String
+  subject          Subject              @relation(fields: [subjectId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  questionNumber   String               // e.g. "Q01", "Q04", "1(a)"
+  questionText     String               // Complete text or prompt of the question
+  maximumMarks     Float                // Maximum marks awardable
+  orderIndex       Int                  @default(1)
+  section          String?              // e.g. "Section A", "Part I"
+  isArchived       Boolean              @default(false)
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  criteria         MarkingCriterion[]
+  attempts         QuestionAttempt[]
+  calibrationItems CalibrationItem[]
+
+  @@unique([subjectId, questionNumber])
+  @@index([subjectId])
+  @@index([orderIndex])
+  @@map("questions")
+}
+
+model MarkingScheme {
+  id               String               @id @default(uuid())
+  subjectId        String
+  subject          Subject              @relation(fields: [subjectId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  version          Int                  @default(1)
+  title            String               // e.g. "Official Evaluation Scheme v1"
+  instructions     String?              // General examiner instructions
+  status           String               @default("DRAFT") // "DRAFT", "APPROVED", "SUPERSEDED"
+  isArchived       Boolean              @default(false)
+
+  createdById      String?
+  createdBy        User?                @relation("SchemeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  analyses         RubricAnalysis[]
+
+  @@index([subjectId])
+  @@map("marking_schemes")
+}
+
+model MarkingCriterion {
+  id                      String        @id @default(uuid())
+  questionId              String
+  question                Question      @relation(fields: [questionId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  name                    String        // e.g. "Core Concept Definition", "Step 1 Derivation"
+  description             String?       // Detailed scoring instructions
+  maximumMarks            Float         // Marks allocated to this criterion
+  orderIndex              Int           @default(1)
+  partialCreditAllowed    Boolean       @default(true)
+  alternateMethodAccepted Boolean       @default(false)
+
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  @@index([questionId])
+  @@index([orderIndex])
+  @@map("marking_criteria")
+}
+
+model ExaminerAssignment {
+  id               String               @id @default(uuid())
+  examId           String?
+  exam             Exam?                @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subjectId        String
+  subject          Subject              @relation(fields: [subjectId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  examinerId       String
+  examiner         User                 @relation("AssignedExaminer", fields: [examinerId], references: [id], onDelete: Cascade)
+
+  assignedById     String?
+  assignedBy       User?                @relation("AssignmentCreator", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  status           String               @default("ACTIVE") // "ACTIVE", "REVOKED", "COMPLETED"
+  assignedAt       DateTime             @default(now())
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@unique([subjectId, examinerId])
+  @@index([subjectId])
+  @@index([examinerId])
+  @@map("examiner_assignments")
+}
+
+// ------------------------------------------------------------------------------
+// Models: AI Rubric Engine & Provenance (Phase 6)
+// ------------------------------------------------------------------------------
+
+enum RubricStatus {
+  ANALYSIS_PENDING
+  ANALYSIS_COMPLETE
+  REVIEW_REQUIRED
+  APPROVED
+  REJECTED
+  SUPERSEDED
+  FAILED
+}
+
+enum ConfidenceBand {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RubricIssueType {
+  AMBIGUITY
+  INCOMPLETE_RULE
+  MARK_MISMATCH
+  POLICY_CONFLICT
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model RubricAnalysis {
+  id                   String                   @id @default(uuid())
+  markingSchemeId      String
+  markingScheme        MarkingScheme            @relation(fields: [markingSchemeId], references: [id], onDelete: Cascade)
+  version              Int                      @default(1)
+  provider             String                   // "gemini", "groq", "mock"
+  model                String                   // e.g. "gemini-2.5-flash", "qwen/qwen3.8-27b"
+  promptVersion        String                   // e.g. "rubric-analysis-v1"
+  confidence           Float                    // e.g. 0.92
+  confidenceBand       ConfidenceBand           @default(HIGH)
+  overallStatus        RubricStatus             @default(REVIEW_REQUIRED)
+  fallbackUsed         Boolean                  @default(false)
+  summary              String?
+  metadata             String?                  // JSON string with timing, tokens, provenance
+  approvedById         String?
+  approvedBy           User?                    @relation("RubricApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt           DateTime?
+  rejectionReason      String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  questions            RubricAnalysisQuestion[]
+  issues               RubricAnalysisIssue[]
+  evaluations          Evaluation[]
+
+  @@unique([markingSchemeId, version])
+  @@index([markingSchemeId])
+  @@index([overallStatus])
+  @@map("rubric_analyses")
+}
+
+model RubricAnalysisQuestion {
+  id                   String                    @id @default(uuid())
+  analysisId           String
+  analysis             RubricAnalysis            @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  questionId           String                    // references Question id
+  questionNumber       String                    // e.g. "Q01", "Q04"
+  specialInstructions  String?
+  isBalanced           Boolean                   @default(true)
+  criteria             RubricAnalysisCriterion[]
+  createdAt            DateTime                  @default(now())
+
+  @@index([analysisId])
+  @@index([questionId])
+  @@map("rubric_analysis_questions")
+}
+
+model RubricAnalysisCriterion {
+  id                      String                 @id @default(uuid())
+  analysisQuestionId      String
+  analysisQuestion        RubricAnalysisQuestion @relation(fields: [analysisQuestionId], references: [id], onDelete: Cascade)
+  name                    String
+  description             String?
+  maximumMarks            Float
+  orderIndex              Int                    @default(1)
+  partialCreditAllowed    Boolean                @default(true)
+  alternateMethodAccepted Boolean                @default(false)
+  isHumanModified         Boolean                @default(false)
+  originalAiValue         String?                // JSON string of AI interpretation before human modification
+  modifiedById            String?
+  modifiedAt              DateTime?
+  modificationReason      String?
+
+  @@index([analysisQuestionId])
+  @@map("rubric_analysis_criteria")
+}
+
+model RubricAnalysisIssue {
+  id                      String                 @id @default(uuid())
+  analysisId              String
+  analysis                RubricAnalysis         @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  questionNumber          String?
+  type                    RubricIssueType        @default(AMBIGUITY)
+  severity                IssueSeverity          @default(MEDIUM)
+  issue                   String
+  explanation             String
+  suggestedClarification  String?
+  isResolved              Boolean                @default(false)
+  resolvedById            String?
+  resolvedAt              DateTime?
+  createdAt               DateTime               @default(now())
+
+  @@index([analysisId])
+  @@map("rubric_analysis_issues")
+}
+
+// ------------------------------------------------------------------------------
+// Models: Answer Script Intake & Storage (Phase 7)
+// ------------------------------------------------------------------------------
+
+enum ScriptBatchStatus {
+  CREATED
+  UPLOADING
+  COMPLETED
+  PARTIAL_FAILURE
+  FAILED
+  READY_FOR_PROCESSING
+}
+
+enum ScriptStatus {
+  UPLOADING
+  UPLOADED
+  VALIDATING
+  VALIDATED
+  READY_FOR_PROCESSING
+  PROCESSING
+  PROCESSING_FAILED
+  REJECTED
+}
+
+enum StorageProviderType {
+  CLOUDINARY
+  LOCAL
+  MOCK
+}
+
+model ScriptBatch {
+  id                String            @id @default(uuid())
+  batchCode         String            @unique // e.g. "BATCH-2026-CS301-001"
+  examId            String
+  exam              Exam              @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subjectId         String
+  subject           Subject           @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  source            String            @default("DIGITAL_SCANNER") // "DIGITAL_SCANNER", "MANUAL_INTAKE", "UNIVERSITY_PORTAL"
+  status            ScriptBatchStatus @default(CREATED)
+  totalScripts      Int               @default(0)
+  successfulScripts Int               @default(0)
+  failedScripts     Int               @default(0)
+  duplicateScripts  Int               @default(0)
+  notes             String?
+
+  createdById       String?
+  createdBy         User?             @relation("BatchCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  scripts           AnswerScript[]
+
+  @@index([examId])
+  @@index([subjectId])
+  @@index([status])
+  @@index([createdById])
+  @@map("script_batches")
+}
+
+model AnswerScript {
+  id               String              @id @default(uuid())
+  scriptCode       String              @unique // ANKLYZE-generated anonymized identifier: e.g. "A-10492"
+  batchId          String
+  batch            ScriptBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  examId           String
+  exam             Exam                @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subjectId        String
+  subject          Subject             @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  originalFilename String
+  mimeType         String              @default("application/pdf")
+  fileSize         Int                 // Size in bytes
+  checksum         String              // SHA-256 hex string
+  pageCount        Int                 @default(1)
+
+  storageProvider  StorageProviderType @default(CLOUDINARY)
+  storageAssetId   String              // Cloudinary public_id or provider asset identifier
+  storageReference String              // Controlled safe access reference URL/path
+  barcodeValue     String?             // Optional scanned QR / barcode reference
+
+  status           ScriptStatus        @default(READY_FOR_PROCESSING)
+  errorMessage     String?
+  metadata         String?             // JSON string for additional safe intake metadata
+
+  // Phase 8: Document Processing Extension
+  documentStatus       DocumentProcessingStatus @default(NOT_STARTED)
+  processedPagesCount  Int                      @default(0)
+  averageOcrConfidence Float?
+
+  // Phase 9: Reconstruction Extension
+  reconstructionStatus ReconstructionStatus     @default(NOT_STARTED)
+
+  createdById      String?
+  createdBy        User?               @relation("ScriptUploader", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  pages              ScriptPage[]
+  reconstructions    ScriptReconstruction[]
+  questionAttempts   QuestionAttempt[]
+  supplementaryLinks SupplementaryScriptLink[] @relation("MainScript")
+  parentScriptLink   SupplementaryScriptLink?  @relation("SupplementaryScript")
+  results            ExaminationResult[]
+
+  @@index([examId])
+  @@index([subjectId])
+  @@index([batchId])
+  @@index([status])
+  @@index([documentStatus])
+  @@index([reconstructionStatus])
+  @@index([checksum])
+  @@index([scriptCode])
+  @@map("answer_scripts")
+}
+
+// ------------------------------------------------------------------------------
+// Models: Document Processing & OCR Engine (Phase 8)
+// ------------------------------------------------------------------------------
+
+enum DocumentProcessingStatus {
+  NOT_STARTED
+  PROCESSING
+  PARTIALLY_PROCESSED
+  COMPLETED
+  FAILED
+  NEEDS_REVIEW
+}
+
+enum PageProcessingStatus {
+  PENDING
+  PROCESSING
+  OCR_COMPLETE
+  FAILED
+  NEEDS_REVIEW
+}
+
+model ScriptPage {
+  id               String               @id @default(uuid())
+  scriptId         String
+  script           AnswerScript         @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  pageNumber       Int
+  storageProvider  StorageProviderType  @default(CLOUDINARY)
+  storageAssetId   String               // e.g. ANKLYZE/answer-scripts/.../pages/page-001
+  imageReference   String               // Derived page image reference
+  width            Int?
+  height           Int?
+  fileSize         Int?
+  qualityScore     Float?               // Basic visual readability / quality signal (0.0 - 1.0)
+  processingStatus PageProcessingStatus @default(PENDING)
+  errorMessage     String?
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  ocrResults       PageOCRResult[]
+  attemptPages     QuestionAttemptPage[]
+  answerRegions    AnswerRegion[]
+
+  @@unique([scriptId, pageNumber])
+  @@index([scriptId])
+  @@index([processingStatus])
+  @@map("script_pages")
+}
+
+model PageOCRResult {
+  id               String         @id @default(uuid())
+  pageId           String
+  page             ScriptPage     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  version          Int            @default(1) // Version tracking for reprocessing provenance (v1, v2)
+  provider         String         // "google-vision", "mock"
+  feature          String         @default("DOCUMENT_TEXT_DETECTION")
+  pipelineVersion  String         @default("ocr-v1")
+  confidence       Float          // Normalized page confidence (0.0 - 1.0)
+  languageCode     String?        // Detected or hinted language (e.g. "en", "hi")
+  fullText         String         // Raw text extracted from document page
+  blocksJson       String         // Structured JSON with blocks, paragraphs, words, bounding boxes
+  metadata         String?        // Provenance metadata (timing, retry attempts, model)
+
+  createdAt        DateTime       @default(now())
+
+  @@unique([pageId, version])
+  @@index([pageId])
+  @@map("page_ocr_results")
+}
+
+// ------------------------------------------------------------------------------
+// Models: Answer Reconstruction & Question Mapping (Phase 9)
+// ------------------------------------------------------------------------------
+
+enum ReconstructionStatus {
+  NOT_STARTED
+  PROCESSING
+  COMPLETED
+  PARTIALLY_RECONSTRUCTED
+  NEEDS_REVIEW
+  FAILED
+}
+
+enum QuestionAttemptState {
+  ACTIVE
+  CANCELLED
+  BLANK
+  CONTINUATION
+  DUPLICATE_ATTEMPT
+  UNREADABLE
+  REQUIRES_REVIEW
+}
+
+model ScriptReconstruction {
+  id                String               @id @default(uuid())
+  scriptId          String
+  script            AnswerScript         @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  version           Int                  @default(1)
+  status            ReconstructionStatus @default(NOT_STARTED)
+  pipelineVersion   String               @default("reconstruct-v1")
+  ocrVersion        Int                  @default(1)
+  provider          String?              // e.g. "hybrid-gemini", "deterministic", "mock"
+  model             String?              // e.g. "gemini-2.5-flash", "qwen/qwen3.8-27b"
+  promptVersion     String?              // e.g. "reconstruct-v1"
+  fallbackUsed      Boolean              @default(false)
+  confidence        Float                @default(1.0)
+  attemptsCount     Int                  @default(0)
+  reviewCasesCount  Int                  @default(0)
+  notes             String?
+  metadata          String?              // JSON string with timing, stats, provenance
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  attempts          QuestionAttempt[]
+
+  @@unique([scriptId, version])
+  @@index([scriptId])
+  @@index([status])
+  @@map("script_reconstructions")
+}
+
+model QuestionAttempt {
+  id                    String                @id @default(uuid())
+  reconstructionId      String
+  reconstruction        ScriptReconstruction  @relation(fields: [reconstructionId], references: [id], onDelete: Cascade)
+  scriptId              String
+  script                AnswerScript          @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  questionId            String
+  question              Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attemptIndex          Int                   @default(1)
+  state                 QuestionAttemptState  @default(ACTIVE)
+  detectedQuestionLabel String?
+  confidence            Float                 @default(1.0)
+  startPageNumber       Int
+  endPageNumber         Int
+  reconstructionReason  String?
+
+  // Provenance of manual resolution (if human overrides or resolves)
+  originalSystemState   QuestionAttemptState?
+  originalQuestionId    String?
+  resolvedByUserId      String?
+  resolvedByUser        User?                 @relation("AttemptResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  resolutionReason      String?
+  resolvedAt            DateTime?
+
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  pages                 QuestionAttemptPage[]
+  regions               AnswerRegion[]
+  evaluations           Evaluation[]
+  riskAssessments       RiskAssessment[]
+  evaluationRounds      EvaluationRound[]
+  doubleEvaluationResult DoubleEvaluationResult?
+  moderationCases       ModerationCase[]
+  resultQuestionMarks   ResultQuestionMark[]
+  revaluationRequests   RevaluationRequest[]
+
+  @@unique([reconstructionId, questionId, attemptIndex])
+  @@index([reconstructionId])
+  @@index([scriptId])
+  @@index([questionId])
+  @@index([state])
+  @@map("question_attempts")
+}
+
+model QuestionAttemptPage {
+  id             String          @id @default(uuid())
+  attemptId      String
+  attempt        QuestionAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  pageId         String
+  page           ScriptPage      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  pageNumber     Int
+  pageOrder      Int             @default(1)
+  isContinuation Boolean         @default(false)
+  regionJson     String?
+
+  createdAt      DateTime        @default(now())
+
+  @@unique([attemptId, pageId])
+  @@index([attemptId])
+  @@index([pageId])
+  @@map("question_attempt_pages")
+}
+
+model AnswerRegion {
+  id               String          @id @default(uuid())
+  attemptId        String
+  attempt          QuestionAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  pageId           String
+  page             ScriptPage      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  pageNumber       Int
+  x                Float?
+  y                Float?
+  width            Float?
+  height           Float?
+  coordinateSystem String          @default("NORMALIZED_0_1")
+  confidence       Float           @default(1.0)
+  label            String?
+
+  createdAt        DateTime        @default(now())
+
+  @@index([attemptId])
+  @@index([pageId])
+  @@map("answer_regions")
+}
+
+model SupplementaryScriptLink {
+  id                    String        @id @default(uuid())
+  mainScriptId          String
+  mainScript            AnswerScript  @relation("MainScript", fields: [mainScriptId], references: [id], onDelete: Cascade)
+  supplementaryScriptId String        @unique
+  supplementaryScript   AnswerScript  @relation("SupplementaryScript", fields: [supplementaryScriptId], references: [id], onDelete: Cascade)
+  barcodeValue          String?
+  status                String        @default("LINKED") // "LINKED", "NEEDS_REVIEW"
+  sequenceOrder         Int           @default(1)
+  linkedByUserId        String?
+  notes                 String?
+
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@index([mainScriptId])
+  @@map("supplementary_script_links")
+}
+
+// ------------------------------------------------------------------------------
+// Models: AI-Assisted Evaluation (Phase 10)
+// ------------------------------------------------------------------------------
+
+enum EvaluationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REQUIRES_REVIEW
+  FAILED
+  SUPERSEDED
+}
+
+enum EvaluationCriterionStatus {
+  SATISFIED
+  PARTIALLY_SATISFIED
+  NOT_SATISFIED
+  NOT_ASSESSABLE
+  REQUIRES_REVIEW
+}
+
+enum EvaluationIssueType {
+  LOW_CONFIDENCE
+  AMBIGUOUS_ANSWER
+  ALTERNATE_METHOD_DETECTED
+  MARK_BOUNDARY
+  UNREADABLE_REGION
+  MULTIPLE_ATTEMPTS
+  RUBRIC_MISMATCH
+}
+
+model Evaluation {
+  id                    String                     @id @default(uuid())
+  questionAttemptId     String
+  questionAttempt       QuestionAttempt            @relation(fields: [questionAttemptId], references: [id], onDelete: Cascade)
+  rubricAnalysisId      String?                    // Reference to approved RubricAnalysis used
+  rubricAnalysis        RubricAnalysis?            @relation(fields: [rubricAnalysisId], references: [id], onDelete: SetNull)
+  version               Int                        @default(1)
+  status                EvaluationStatus           @default(PENDING)
+  pipelineVersion       String                     @default("evaluate-v1")
+  provider              String?                    // e.g. "gemini", "groq", "mock"
+  model                 String?                    // e.g. "gemini-2.5-flash", "qwen/qwen3.8-27b"
+  promptVersion         String?                    // e.g. "evaluate-v1"
+  fallbackUsed          Boolean                    @default(false)
+
+  // AI Assessment
+  suggestedMarks        Float?
+  maxMarks              Float
+  confidenceScore       Float                      @default(0.0)
+  confidenceBand        ConfidenceBand             @default(LOW)
+  assessmentSummary     String?                    // Concise AI assessment text
+  requiresReview        Boolean                    @default(false)
+
+  // Examiner Decision (null until examiner acts)
+  examinerDecision      String?                    // "ACCEPTED", "OVERRIDDEN", "FLAGGED"
+  examinerMarks         Float?
+  examinerNotes         String?
+  examinerUserId        String?
+  examinerUser          User?                      @relation("EvaluationExaminer", fields: [examinerUserId], references: [id], onDelete: SetNull)
+  decidedAt             DateTime?
+
+  metadata              String?                    // JSON string with timing, token counts, provenance
+
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+
+  criterionResults      EvaluationCriterionResult[]
+  issues                EvaluationIssue[]
+  decisionHistory       ExaminerEvaluationDecision[]
+  riskAssessments       RiskAssessment[]
+  evaluationRounds      EvaluationRound[]
+  moderationCases       ModerationCase[]
+
+  @@unique([questionAttemptId, version])
+  @@index([questionAttemptId])
+  @@index([status])
+  @@index([examinerDecision])
+  @@map("evaluations")
+}
+
+model EvaluationCriterionResult {
+  id                    String                      @id @default(uuid())
+  evaluationId          String
+  evaluation            Evaluation                  @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  criterionId           String                      // References MarkingCriterion.id or RubricAnalysisCriterion.id
+  criterionName         String                      // Denormalized for display
+  status                EvaluationCriterionStatus   @default(NOT_ASSESSABLE)
+  suggestedMarks        Float                       @default(0)
+  maxMarks              Float
+  confidenceScore       Float                       @default(0.0)
+  evidenceSummary       String?                     // Concise reason for the mark
+
+  // Examiner override at criterion level
+  examinerMarks         Float?
+  examinerOverridden    Boolean                     @default(false)
+
+  createdAt             DateTime                    @default(now())
+
+  evidence              EvaluationEvidence[]
+
+  @@index([evaluationId])
+  @@index([criterionId])
+  @@map("evaluation_criterion_results")
+}
+
+model EvaluationEvidence {
+  id                         String                     @id @default(uuid())
+  criterionResultId          String
+  criterionResult            EvaluationCriterionResult  @relation(fields: [criterionResultId], references: [id], onDelete: Cascade)
+  pageId                     String?                    // References ScriptPage.id
+  answerRegionId             String?                    // References AnswerRegion.id
+  evidenceType               String                     @default("TEXT_MATCH") // TEXT_MATCH, VISUAL_MATCH, OCR_REFERENCE
+  extractedText              String?                    // Quoted text from answer
+  reason                     String?                    // Why this evidence supports the criterion assessment
+  relevanceScore             Float                      @default(1.0)
+  pageNumber                 Int?
+
+  createdAt                  DateTime                   @default(now())
+
+  @@index([criterionResultId])
+  @@index([pageId])
+  @@map("evaluation_evidence")
+}
+
+model EvaluationIssue {
+  id                    String              @id @default(uuid())
+  evaluationId          String
+  evaluation            Evaluation          @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  issueType             EvaluationIssueType @default(LOW_CONFIDENCE)
+  severity              IssueSeverity       @default(MEDIUM)
+  message               String
+  requiresReview        Boolean             @default(false)
+  resolvedByUserId      String?
+  resolvedAt            DateTime?
+
+  createdAt             DateTime            @default(now())
+
+  @@index([evaluationId])
+  @@map("evaluation_issues")
+}
+
+// ------------------------------------------------------------------------------
+// Phase 11: Human Evaluation + Immutable Provenance Models
+// ------------------------------------------------------------------------------
+
+enum DecisionType {
+  ACCEPT_AI_SUGGESTION
+  OVERRIDE_AI
+  SAVE_DRAFT
+  FLAG_FOR_REVIEW
+  FINALIZE
+  REOPEN
+}
+
+enum DecisionStatus {
+  DRAFT
+  FINAL
+}
+
+model ExaminerEvaluationDecision {
+  id                   String                     @id @default(uuid())
+  evaluationId         String
+  evaluation           Evaluation                 @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  version              Int                        @default(1)
+  decisionType         DecisionType               @default(SAVE_DRAFT)
+  status               DecisionStatus             @default(DRAFT)
+  totalMarks           Float
+  maxMarks             Float
+  notes                String?
+  overrideReason       String?                    // Reason for overriding AI or prior decision
+  reopenReason         String?                    // Reason for reopening a finalized decision
+  examinerUserId       String
+  examinerUser         User?                      @relation("ExaminerDecisionMaker", fields: [examinerUserId], references: [id], onDelete: SetNull)
+  sourceAIEvaluationId String?
+  previousDecisionId   String?
+  previousDecision     ExaminerEvaluationDecision? @relation("DecisionHistory", fields: [previousDecisionId], references: [id], onDelete: SetNull)
+  nextDecisions        ExaminerEvaluationDecision[] @relation("DecisionHistory")
+  diffJson             String?                    // Machine-readable JSON diff: { totalMarks: { before, after }, criteriaChanged: [] }
+  aiSnapshotJson       String?                    // Snapshot of AI evaluation at time of human decision
+  provenanceJson       String?                    // Traceability metadata linking QuestionAttempt, Rubric, Examiner
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  criteriaDecisions    ExaminerCriterionDecision[]
+
+  @@unique([evaluationId, version])
+  @@index([evaluationId])
+  @@index([examinerUserId])
+  @@index([status])
+  @@map("examiner_evaluation_decisions")
+}
+
+model ExaminerCriterionDecision {
+  id                   String                     @id @default(uuid())
+  decisionId           String
+  decision             ExaminerEvaluationDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  criterionId          String                     // References MarkingCriterion.id or RubricAnalysisCriterion.id
+  criterionName        String
+  marksAwarded         Float
+  maxMarks             Float
+  aiSuggestedMarks     Float?
+  isOverridden         Boolean                    @default(false)
+  examinerComment      String?
+  createdAt            DateTime                   @default(now())
+
+  @@unique([decisionId, criterionId])
+  @@index([decisionId])
+  @@index([criterionId])
+  @@map("examiner_criterion_decisions")
+}
+
+// ------------------------------------------------------------------------------
+// Phase 12: Evaluation Risk Engine & Adaptive Double Evaluation Models
+// ------------------------------------------------------------------------------
+
+enum RiskBand {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RiskFactorType {
+  AI_UNCERTAINTY
+  SCAN_PAGE_QUALITY
+  RUBRIC_AMBIGUITY
+  AI_HUMAN_DISAGREEMENT
+  CRITERION_DISAGREEMENT
+  RECONSTRUCTION_UNCERTAINTY
+  EVIDENCE_WEAKNESS
+  SPECIAL_ANSWER_STATE
+}
+
+enum FactorSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RoundStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DoubleEvaluationState {
+  NONE
+  PENDING_SECOND_EVALUATION
+  SECOND_EVALUATION_IN_PROGRESS
+  SECOND_EVALUATION_COMPLETED
+  DOUBLE_EVALUATION_AGREED
+  DOUBLE_EVALUATION_DISAGREEMENT
+  REQUIRES_SENIOR_REVIEW
+}
+
+enum IndependenceMode {
+  DOUBLE_BLIND
+  INDEPENDENT_PARALLEL
+  ADAPTIVE_SEQUENTIAL
+}
+
+model RiskAssessment {
+  id                        String                     @id @default(uuid())
+  questionAttemptId          String
+  questionAttempt           QuestionAttempt            @relation(fields: [questionAttemptId], references: [id], onDelete: Cascade)
+  evaluationId              String?
+  evaluation                Evaluation?                @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+  humanDecisionId           String?
+  version                   Int                        @default(1)
+  overallRiskScore          Float                      // 0 - 100 bounded
+  riskBand                  RiskBand                   @default(LOW)
+  requiresSecondEvaluation  Boolean                    @default(false)
+  requiresSeniorReview      Boolean                    @default(false)
+  requiresHumanReview       Boolean                    @default(false)
+  formulaVersion            String                     @default("risk-v1")
+  metadataJson              String?                    // Snapshot of context, contributing entities, config thresholds
+
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+
+  factors                   RiskFactor[]
+
+  @@unique([questionAttemptId, version])
+  @@index([questionAttemptId])
+  @@index([riskBand])
+  @@index([requiresSecondEvaluation])
+  @@map("risk_assessments")
+}
+
+model RiskFactor {
+  id                String          @id @default(uuid())
+  riskAssessmentId  String
+  riskAssessment    RiskAssessment  @relation(fields: [riskAssessmentId], references: [id], onDelete: Cascade)
+  factorType        RiskFactorType
+  severity          FactorSeverity  @default(LOW)
+  scoreContribution Float           // Positive additive risk points
+  measuredValue     Float?          // Observable quantitative measurement (e.g. 0.42 confidence, 0.33 delta)
+  threshold         Float?          // Threshold triggering this factor
+  explanation       String          // Human-readable rationale
+  sourceEntityId    String?         // Reference to Page, Region, RubricIssue, Evaluation, etc.
+  sourceEntityType  String?         // "Evaluation", "ScriptPage", "RubricAnalysisIssue", etc.
+  metadataJson      String?
+
+  createdAt         DateTime        @default(now())
+
+  @@index([riskAssessmentId])
+  @@index([factorType])
+  @@map("risk_factors")
+}
+
+model EvaluationRound {
+  id                 String               @id @default(uuid())
+  questionAttemptId  String
+  questionAttempt    QuestionAttempt      @relation(fields: [questionAttemptId], references: [id], onDelete: Cascade)
+  roundNumber        Int                  @default(1) // 1 = First Examiner, 2 = Independent Second Examiner
+  evaluationId       String?
+  evaluation         Evaluation?          @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+  evaluatorUserId    String?
+  evaluatorUser      User?                @relation("RoundEvaluator", fields: [evaluatorUserId], references: [id], onDelete: SetNull)
+  evaluatorType      String               @default("EXAMINER")
+  status             RoundStatus          @default(PENDING)
+  independenceMode   IndependenceMode     @default(DOUBLE_BLIND)
+  startedAt          DateTime?
+  completedAt        DateTime?
+
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@unique([questionAttemptId, roundNumber])
+  @@index([questionAttemptId])
+  @@index([evaluatorUserId])
+  @@index([status])
+  @@map("evaluation_rounds")
+}
+
+model DoubleEvaluationResult {
+  id                      String                 @id @default(uuid())
+  questionAttemptId       String                 @unique
+  questionAttempt         QuestionAttempt        @relation(fields: [questionAttemptId], references: [id], onDelete: Cascade)
+  round1EvaluationId      String?
+  round2EvaluationId      String?
+  round1Marks             Float
+  round2Marks             Float
+  markDelta               Float                  // abs(round1 - round2)
+  normalizedDelta         Float                  // markDelta / maxMarks
+  status                  DoubleEvaluationState  @default(PENDING_SECOND_EVALUATION)
+  requiresSeniorReview    Boolean                @default(false)
+  criteriaDifferencesCount Int                   @default(0)
+  discrepancyDetailsJson  String?                // Criterion by criterion diff between round 1 and round 2
+  seniorReviewNotes       String?
+
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  @@index([status])
+  @@index([requiresSeniorReview])
+  @@map("double_evaluation_results")
+}
+
+// ------------------------------------------------------------------------------
+// Phase 13: Moderation, Calibration & Evaluator Analytics Models
+// ------------------------------------------------------------------------------
+
+enum ModerationPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ModerationStatus {
+  OPEN
+  ASSIGNED
+  IN_REVIEW
+  RESOLVED
+  ESCALATED
+  CLOSED
+}
+
+enum ModerationResolutionType {
+  ACCEPT_EXISTING_DECISION
+  MODIFY_MARKS
+  REQUEST_RE_EVALUATION
+  RETURN_TO_EXAMINER
+  ESCALATE
+}
+
+enum CalibrationSetStatus {
+  DRAFT
+  APPROVED
+  ARCHIVED
+}
+
+enum CalibrationSessionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+}
+
+enum DriftSignalType {
+  MARK_DISTRIBUTION_SHIFT
+  OVERRIDE_RATE_SHIFT
+  DISAGREEMENT_RATE_SHIFT
+}
+
+enum DriftSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum DriftStatus {
+  OBSERVED
+  REVIEWED
+  DISMISSED
+}
+
+model ModerationCase {
+  id                        String                   @id @default(uuid())
+  caseNumber                String                   @unique // e.g. "MOD-2026-0001"
+  questionAttemptId         String
+  questionAttempt           QuestionAttempt          @relation(fields: [questionAttemptId], references: [id], onDelete: Cascade)
+  evaluationId              String?
+  evaluation                Evaluation?              @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+  riskAssessmentId          String?
+  doubleEvaluationResultId  String?
+  priority                  ModerationPriority       @default(HIGH)
+  triggerReason             String                   // "DOUBLE_EVALUATION_DISAGREEMENT", "CRITICAL_RISK", "MANUAL_FLAG", etc.
+  status                    ModerationStatus         @default(OPEN)
+  assignedModeratorId       String?
+  assignedModerator         User?                    @relation("CaseModerator", fields: [assignedModeratorId], references: [id], onDelete: SetNull)
+  createdById               String?
+  resolutionType            ModerationResolutionType?
+  resolutionNotes           String?
+  resolvedAt                DateTime?
+  metadataJson              String?                  // Provenance, contributing entities, score snapshots
+
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+
+  decisions                 ModerationDecision[]
+
+  @@index([questionAttemptId])
+  @@index([priority])
+  @@index([status])
+  @@index([assignedModeratorId])
+  @@map("moderation_cases")
+}
+
+model ModerationDecision {
+  id                      String                   @id @default(uuid())
+  moderationCaseId        String
+  moderationCase          ModerationCase           @relation(fields: [moderationCaseId], references: [id], onDelete: Cascade)
+  version                 Int                      @default(1)
+  decisionType            ModerationResolutionType
+  marksBefore             Float
+  marksAfter              Float
+  delta                   Float
+  reason                  String
+  moderatorUserId         String
+  moderatorUser           User                     @relation("ModerationDecisionUser", fields: [moderatorUserId], references: [id], onDelete: Restrict)
+  previousDecisionId      String?
+  criterionOverridesJson  String?                  // Specific criterion-level adjustments made by moderator
+  metadataJson            String?                  // Diff snapshot, timestamps, evidence references
+  createdAt               DateTime                 @default(now())
+
+  @@unique([moderationCaseId, version])
+  @@index([moderationCaseId])
+  @@index([moderatorUserId])
+  @@map("moderation_decisions")
+}
+
+model CalibrationSet {
+  id               String               @id @default(uuid())
+  code             String               @unique // e.g. "CAL-EM3-2026-V1"
+  title            String
+  description      String?
+  examId           String?
+  exam             Exam?                @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subjectId        String?
+  subject          Subject?             @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  version          Int                  @default(1)
+  status           CalibrationSetStatus @default(APPROVED)
+  createdById      String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  items            CalibrationItem[]
+  sessions         CalibrationSession[]
+
+  @@index([subjectId])
+  @@index([examId])
+  @@index([status])
+  @@map("calibration_sets")
+}
+
+model CalibrationItem {
+  id                     String                  @id @default(uuid())
+  calibrationSetId       String
+  calibrationSet         CalibrationSet          @relation(fields: [calibrationSetId], references: [id], onDelete: Cascade)
+  questionId             String?
+  question               Question?               @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  sampleQuestionText     String
+  sampleAnswerText       String
+  maxMarks               Float
+  referenceMarks         Float                   // Protected server-side before submission
+  referenceCriteriaJson  String                  // Breakdown of criteria and authorized marks
+  referenceEvidenceJson  String?                 // Evidence grounding
+  explanation            String                  // Pedagogical / reference rationale
+  orderIndex             Int                     @default(1)
+  createdAt              DateTime                @default(now())
+
+  submissions            CalibrationSubmission[]
+
+  @@index([calibrationSetId])
+  @@index([questionId])
+  @@map("calibration_items")
+}
+
+model CalibrationSession {
+  id                  String                   @id @default(uuid())
+  calibrationSetId    String
+  calibrationSet      CalibrationSet           @relation(fields: [calibrationSetId], references: [id], onDelete: Cascade)
+  evaluatorUserId     String
+  evaluatorUser       User                     @relation("EvaluatorCalibrationSession", fields: [evaluatorUserId], references: [id], onDelete: Cascade)
+  status              CalibrationSessionStatus @default(NOT_STARTED)
+  startedAt           DateTime?
+  completedAt         DateTime?
+  totalDeviation      Float?                   // Mean absolute deviation from reference
+  criteriaMatchCount  Int?
+  criteriaTotalCount  Int?
+  feedbackSummary     String?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  submissions         CalibrationSubmission[]
+
+  @@unique([calibrationSetId, evaluatorUserId])
+  @@index([calibrationSetId])
+  @@index([evaluatorUserId])
+  @@index([status])
+  @@map("calibration_sessions")
+}
+
+model CalibrationSubmission {
+  id                  String             @id @default(uuid())
+  sessionId           String
+  session             CalibrationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  itemId              String
+  item                CalibrationItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  awardedMarks        Float
+  referenceMarks      Float?             // Populated only post-submission server-side
+  markDelta           Float?
+  criteriaScoresJson  String             // JSON mapping criterionId -> marks
+  feedbackNotes       String?
+  submittedAt         DateTime           @default(now())
+
+  @@unique([sessionId, itemId])
+  @@index([sessionId])
+  @@index([itemId])
+  @@map("calibration_submissions")
+}
+
+model EvaluatorDriftObservation {
+  id                  String          @id @default(uuid())
+  evaluatorUserId     String
+  evaluatorUser       User            @relation("EvaluatorDriftUser", fields: [evaluatorUserId], references: [id], onDelete: Cascade)
+  examId              String?
+  subjectId           String?
+  windowStart         DateTime
+  windowEnd           DateTime
+  sampleSize          Int             // Required MIN_SAMPLE_SIZE guard (e.g. >= 20)
+  baselineMetric      Float
+  currentMetric       Float
+  delta               Float
+  signalType          DriftSignalType
+  severity            DriftSeverity   @default(LOW)
+  status              DriftStatus     @default(OBSERVED)
+  explanation         String
+  createdAt           DateTime        @default(now())
+
+  @@index([evaluatorUserId])
+  @@index([signalType])
+  @@index([severity])
+  @@map("evaluator_drift_observations")
+}
+
+// ------------------------------------------------------------------------------
+// Phase 14: Result Validation + Reports + Revaluation Models
+// ------------------------------------------------------------------------------
+
+enum ResultStatus {
+  DRAFT
+  VALIDATING
+  BLOCKED
+  VALIDATED
+  APPROVED
+  SUPERSEDED
+  REVALUATION_PENDING
+  REVALUATED
+}
+
+enum ResultValidationStatus {
+  PASSED
+  WARNING
+  BLOCKED
+}
+
+enum ResultValidationSeverity {
+  WARNING
+  BLOCKING
+}
+
+enum RevaluationScope {
+  FULL_RESULT_REVIEW
+  QUESTION_SPECIFIC_REVIEW
+}
+
+enum RevaluationStatus {
+  REQUESTED
+  AUTHORIZED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+model ExaminationResult {
+  id                   String                 @id @default(uuid())
+  examId               String
+  exam                 Exam                   @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subjectId            String
+  subject              Subject                @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  scriptId             String
+  script               AnswerScript           @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  version              Int                    @default(1)
+  status               ResultStatus           @default(DRAFT)
+  totalMarks           Float
+  maximumMarks         Float
+  percentage           Float
+  resultCode           String?                // e.g. "FIRST_CLASS", "PASS", "FAIL"
+  validationStatus     ResultValidationStatus @default(BLOCKED)
+  fingerprint          String?                // SHA-256 integrity hash of version, question marks & source decisions
+  approvedById         String?
+  approvedBy           User?                  @relation("ResultApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt           DateTime?
+  supersedesResultId   String?
+  supersedesResult     ExaminationResult?     @relation("ResultSupersession", fields: [supersedesResultId], references: [id], onDelete: SetNull)
+  supersededBy         ExaminationResult[]    @relation("ResultSupersession")
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  questionMarks        ResultQuestionMark[]
+  validations          ResultValidation[]
+  revaluationRequests  RevaluationRequest[]   @relation("ResultRevaluations")
+
+  @@unique([scriptId, version])
+  @@index([examId])
+  @@index([subjectId])
+  @@index([scriptId])
+  @@index([status])
+  @@index([validationStatus])
+  @@map("examination_results")
+}
+
+model ResultQuestionMark {
+  id                         String            @id @default(uuid())
+  resultId                   String
+  result                     ExaminationResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  questionAttemptId          String
+  questionAttempt            QuestionAttempt   @relation(fields: [questionAttemptId], references: [id], onDelete: Cascade)
+  questionNumber             String
+  maximumMarks               Float
+  awardedMarks               Float
+  sourceDecisionId           String?           // References authoritative ExaminerEvaluationDecision.id
+  sourceModerationDecisionId String?           // References ModerationDecision.id if moderated
+  status                     String            @default("FINAL")
+  createdAt                  DateTime          @default(now())
+
+  @@unique([resultId, questionAttemptId])
+  @@index([resultId])
+  @@index([questionAttemptId])
+  @@map("result_question_marks")
+}
+
+model ResultValidation {
+  id                String                 @id @default(uuid())
+  resultId          String
+  result            ExaminationResult      @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  validationVersion Int                    @default(1)
+  status            ResultValidationStatus @default(BLOCKED)
+  passed            Boolean                @default(false)
+  evaluatedAt       DateTime               @default(now())
+
+  issues            ResultValidationIssue[]
+
+  @@index([resultId])
+  @@index([status])
+  @@map("result_validations")
+}
+
+model ResultValidationIssue {
+  id                 String                   @id @default(uuid())
+  resultValidationId String
+  resultValidation   ResultValidation         @relation(fields: [resultValidationId], references: [id], onDelete: Cascade)
+  ruleCode           String                   // e.g. "RESULT-COV-001", "RESULT-MOD-001"
+  severity           ResultValidationSeverity @default(BLOCKING)
+  message            String
+  entityType         String?                  // e.g. "QuestionAttempt", "ModerationCase"
+  entityId           String?
+  blocking           Boolean                  @default(true)
+  resolvedAt         DateTime?
+  resolvedById       String?
+  createdAt          DateTime                 @default(now())
+
+  @@index([resultValidationId])
+  @@index([ruleCode])
+  @@index([severity])
+  @@map("result_validation_issues")
+}
+
+model RevaluationRequest {
+  id                  String            @id @default(uuid())
+  resultId            String
+  result              ExaminationResult @relation("ResultRevaluations", fields: [resultId], references: [id], onDelete: Cascade)
+  questionAttemptId   String?
+  questionAttempt     QuestionAttempt?  @relation(fields: [questionAttemptId], references: [id], onDelete: SetNull)
+  scope               RevaluationScope  @default(FULL_RESULT_REVIEW)
+  reason              String
+  status              RevaluationStatus @default(REQUESTED)
+  requestedById       String
+  requestedBy         User              @relation("RevaluationRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+  reviewedById        String?
+  reviewedBy          User?             @relation("RevaluationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  previousTotalMarks  Float?
+  newTotalMarks       Float?
+  deltaMarks          Float?
+  revaluationResultId String?           // Links to generated Result v2
+  completedAt         DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([resultId])
+  @@index([questionAttemptId])
+  @@index([status])
+  @@index([requestedById])
+  @@map("revaluation_requests")
+}
+
+
+
+
+
+

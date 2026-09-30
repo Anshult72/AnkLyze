@@ -13,32 +13,21 @@ export default function WorkSummary({ metrics }: WorkSummaryProps) {
       label: "Assigned Scripts",
       value: metrics.assignedScripts,
       detail: "Total allocated batch",
-      valueColor: "text-slate-900",
-      badge: null,
     },
     {
       label: "Completed",
       value: metrics.completed,
       detail: "Evaluated & signed",
-      valueColor: "text-[#16A34A]",
-      badge: `${Math.round((metrics.completed / metrics.assignedScripts) * 100)}%`,
-      badgeStyle: "bg-emerald-50 text-emerald-700 border-emerald-200",
     },
     {
       label: "Pending",
       value: metrics.pending,
       detail: "Awaiting evaluation",
-      valueColor: "text-blue-600",
-      badge: "In Queue",
-      badgeStyle: "bg-blue-50 text-blue-700 border-blue-200",
     },
     {
-      label: "Needs Review",
+      label: "Flagged in batch",
       value: metrics.needsReview,
-      detail: "Exceptions / verification",
-      valueColor: "text-amber-600",
-      badge: "Action Required",
-      badgeStyle: "bg-amber-50 text-amber-700 border-amber-200",
+      detail: "Across all assigned scripts",
     },
   ];
 
@@ -51,23 +40,16 @@ export default function WorkSummary({ metrics }: WorkSummaryProps) {
         {items.map((item, idx) => (
           <div
             key={idx}
-            className="p-5 sm:p-6 flex flex-col justify-between hover:bg-slate-50/50 transition-colors"
+            className="p-5 sm:p-6 flex flex-col justify-between"
           >
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-slate-500 tracking-wider uppercase font-mono">
                 {item.label}
               </span>
-              {item.badge && (
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.badgeStyle}`}
-                >
-                  {item.badge}
-                </span>
-              )}
             </div>
 
             <div className="mt-1">
-              <span className={`text-3xl sm:text-4xl font-serif font-bold tracking-tight ${item.valueColor}`}>
+              <span className="text-3xl sm:text-4xl font-serif font-medium tracking-tight text-slate-900">
                 {item.value}
               </span>
               <p className="text-xs text-slate-500 mt-1 font-medium">
