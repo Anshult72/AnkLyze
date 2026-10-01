@@ -75,7 +75,7 @@ export class DocumentProcessingService {
   ): Promise<DocumentProcessingSummary> {
     const script = await this.repo.findScriptWithPages(scriptId);
     if (!script) {
-      throw new Error(`SCRIPT_NOT_FOUND: Answer script with ID ${scriptId} was not found`);
+      throw new Error(`SCRIPT_NOT_FOUND: Answer sheet with ID ${scriptId} was not found`);
     }
 
     // Check idempotency: If already completed and not forced, return existing summary
@@ -116,7 +116,7 @@ export class DocumentProcessingService {
         userId: options.userContext?.userId,
         details: { scriptId, error: `Storage download failed: ${downloadErr.message}` },
       });
-      throw new Error(`STORAGE_RETRIEVAL_FAILED: Failed to retrieve answer script: ${downloadErr.message}`);
+      throw new Error(`STORAGE_RETRIEVAL_FAILED: Failed to retrieve answer sheet: ${downloadErr.message}`);
     }
 
     // 2. Inspect PDF and extract page artifacts
@@ -331,7 +331,7 @@ export class DocumentProcessingService {
   public async getScriptProcessing(scriptId: string) {
     const script = await this.repo.findScriptWithPages(scriptId);
     if (!script) {
-      throw new Error(`SCRIPT_NOT_FOUND: Answer script with ID ${scriptId} was not found`);
+      throw new Error(`SCRIPT_NOT_FOUND: Answer sheet with ID ${scriptId} was not found`);
     }
     return this.formatSummary(script);
   }
@@ -342,7 +342,7 @@ export class DocumentProcessingService {
   public async getScriptPages(scriptId: string) {
     const script = await this.repo.findScriptWithPages(scriptId);
     if (!script) {
-      throw new Error(`SCRIPT_NOT_FOUND: Answer script with ID ${scriptId} was not found`);
+      throw new Error(`SCRIPT_NOT_FOUND: Answer sheet with ID ${scriptId} was not found`);
     }
     return script.pages;
   }
@@ -353,7 +353,7 @@ export class DocumentProcessingService {
   public async getPageDetail(pageId: string) {
     const page = await this.repo.findPageById(pageId);
     if (!page) {
-      throw new Error(`PAGE_NOT_FOUND: Script page with ID ${pageId} was not found`);
+      throw new Error(`PAGE_NOT_FOUND: Sheet page with ID ${pageId} was not found`);
     }
     return page;
   }

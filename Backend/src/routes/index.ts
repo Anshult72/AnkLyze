@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { healthRoutes } from "./health.routes";
 import { authRoutes } from "./auth.routes";
+import { examinerAccountRoutes } from "./examinerAccount.routes";
 import {
   examRoutes,
   subjectRoutes,
@@ -33,6 +34,7 @@ router.use("/health", healthRoutes);
 
 // Authentication & Authorization Endpoints
 router.use("/auth", authRoutes);
+router.use("/examiner-accounts", examinerAccountRoutes);
 
 // Examination Management Endpoints (Phase 5)
 router.use("/exams", examRoutes);

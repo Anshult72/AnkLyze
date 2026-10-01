@@ -101,7 +101,7 @@ export class ScriptController {
           res,
           {
             code: "NO_FILES_PROVIDED",
-            message: "No files uploaded. Provide at least one PDF answer script via multipart 'files' or 'file'.",
+            message: "No files uploaded. Provide at least one PDF answer sheet via multipart 'files' or 'file'.",
           },
           400
         );

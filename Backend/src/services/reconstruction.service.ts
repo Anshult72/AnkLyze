@@ -110,7 +110,7 @@ export class ReconstructionService {
     const script = await this.repo.findScriptForReconstruction(scriptId);
 
     if (!script) {
-      throw new Error(`SCRIPT_NOT_FOUND: Answer script ${scriptId} not found`);
+      throw new Error(`SCRIPT_NOT_FOUND: Answer sheet ${scriptId} not found`);
     }
 
     // Check idempotency: If already completed and not forced, return existing summary
@@ -146,7 +146,7 @@ export class ReconstructionService {
 
     // Ensure OCR data is present
     if (!script.pages || script.pages.length === 0) {
-      throw new Error(`OCR_DATA_NOT_FOUND: No pages found for script ${scriptId}`);
+      throw new Error(`OCR_DATA_NOT_FOUND: No pages found for sheet ${scriptId}`);
     }
 
     const examQuestions: ExamQuestionReference[] = (script.subject?.questions || []).map((q) => ({
@@ -661,7 +661,7 @@ export class ReconstructionService {
   public async getReconstruction(scriptId: string, version?: number) {
     const script = await this.repo.findScriptForReconstruction(scriptId);
     if (!script) {
-      throw new Error(`SCRIPT_NOT_FOUND: Answer script ${scriptId} not found`);
+      throw new Error(`SCRIPT_NOT_FOUND: Answer sheet ${scriptId} not found`);
     }
 
     const reconstruction = await this.repo.findReconstruction(scriptId, version);

@@ -128,7 +128,7 @@ export class ReconstructionController {
           res,
           {
             code: 'NOT_FOUND',
-            message: `No reconstruction found for answer script ${scriptId}`,
+            message: `No reconstruction found for answer sheet ${scriptId}`,
           },
           404
         );
@@ -298,7 +298,7 @@ export class ReconstructionController {
       });
 
       ApiResponse.success(res, link, 200, {
-        message: 'Supplementary script linked successfully',
+        message: 'Supplementary sheet linked successfully',
       });
     } catch (error: any) {
       logger.error({ error: error.message }, 'Error linking supplementary script');

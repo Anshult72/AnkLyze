@@ -134,11 +134,11 @@ export class ScriptService {
   ): Promise<BatchUploadSummary> {
     const batch = await this.repo.findBatchById(batchId);
     if (!batch) {
-      throw new Error(`BATCH_NOT_FOUND: Script batch with ID ${batchId} was not found`);
+      throw new Error(`BATCH_NOT_FOUND: Sheet batch with ID ${batchId} was not found`);
     }
 
     if (!files || files.length === 0) {
-      throw new Error("NO_FILES_PROVIDED: At least one PDF answer script is required for intake");
+      throw new Error("NO_FILES_PROVIDED: At least one PDF answer sheet is required for intake");
     }
 
     // Set batch status to UPLOADING
@@ -209,7 +209,7 @@ export class ScriptService {
             status: "DUPLICATE",
             checksum: validation.checksum,
             duplicateOf: duplicate.scriptCode,
-            error: `Identical script already exists in this subject with Script ID ${duplicate.scriptCode}`,
+            error: `Identical sheet already exists in this subject with Sheet ID ${duplicate.scriptCode}`,
           });
           continue;
         }
@@ -306,7 +306,7 @@ export class ScriptService {
           results.push({
             originalFilename: filename,
             status: "FAILED",
-            error: "Failed to persist script record in database",
+            error: "Failed to save sheet record in database",
           });
           continue;
         }
@@ -345,7 +345,7 @@ export class ScriptService {
         results.push({
           originalFilename: filename,
           status: "FAILED",
-          error: unhandledErr.message || "Unknown error during script intake",
+          error: unhandledErr.message || "Unknown error during sheet intake",
         });
       }
     }
@@ -411,7 +411,7 @@ export class ScriptService {
   async getScriptDetails(scriptId: string) {
     const script = await this.repo.findScriptById(scriptId);
     if (!script) {
-      throw new Error(`SCRIPT_NOT_FOUND: Script with ID ${scriptId} does not exist`);
+      throw new Error(`SCRIPT_NOT_FOUND: Sheet with ID ${scriptId} does not exist`);
     }
     return script;
   }

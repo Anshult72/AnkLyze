@@ -535,9 +535,9 @@ export const openApiSpec = {
     },
     "/script-batches": {
       post: {
-        summary: "Create Script Intake Batch",
+        summary: "Create Sheet Intake Batch",
         description: "Creates an intake batch linked to an Examination and Subject for scanned answer books.",
-        tags: ["Answer Script Intake"],
+        tags: ["Answer Sheet Intake"],
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -558,16 +558,16 @@ export const openApiSpec = {
           },
         },
         responses: {
-          "201": { description: "Script batch created successfully" },
+          "201": { description: "Sheet batch created successfully" },
           "400": { description: "Invalid input or Exam/Subject mismatch" },
           "403": { description: "Forbidden - Requires SUPER_ADMIN or HEAD_EXAMINER role" },
           "409": { description: "Batch code already exists" },
         },
       },
       get: {
-        summary: "List Script Intake Batches",
+        summary: "List Sheet Intake Batches",
         description: "Retrieves list of intake batches with filtering by exam, subject, and status.",
-        tags: ["Answer Script Intake"],
+        tags: ["Answer Sheet Intake"],
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: "examId", in: "query", schema: { type: "string" } },
@@ -575,7 +575,7 @@ export const openApiSpec = {
           { name: "status", in: "query", schema: { type: "string" } },
         ],
         responses: {
-          "200": { description: "List of script batches" },
+          "200": { description: "List of sheet batches" },
           "401": { description: "Unauthorized" },
           "403": { description: "Forbidden" },
         },
@@ -584,8 +584,8 @@ export const openApiSpec = {
     "/script-batches/{batchId}": {
       get: {
         summary: "Get Batch Details",
-        description: "Retrieves intake batch details with per-batch metrics and script count.",
-        tags: ["Answer Script Intake"],
+        description: "Retrieves intake batch details with per-batch metrics and sheet count.",
+        tags: ["Answer Sheet Intake"],
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: "batchId", in: "path", required: true, schema: { type: "string" } },
@@ -598,9 +598,9 @@ export const openApiSpec = {
     },
     "/script-batches/{batchId}/scripts": {
       post: {
-        summary: "Upload Scanned Answer Scripts (Single or Bulk)",
-        description: "Uploads one or multiple scanned PDF answer books into the intake batch. Validates MIME type, magic bytes, SHA-256 duplicate detection, assigns anonymized script ID, stores via Cloudinary abstraction.",
-        tags: ["Answer Script Intake"],
+        summary: "Upload Scanned Answer Sheets (Single or Bulk)",
+        description: "Uploads one or multiple scanned PDF answer books into the intake batch. Validates MIME type, magic bytes, SHA-256 duplicate detection, assigns anonymized sheet ID, stores via Cloudinary abstraction.",
+        tags: ["Answer Sheet Intake"],
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: "batchId", in: "path", required: true, schema: { type: "string" } },
@@ -632,9 +632,9 @@ export const openApiSpec = {
     },
     "/scripts": {
       get: {
-        summary: "List Ingested Answer Scripts",
-        description: "Returns paginated list of ingested answer scripts with anonymized IDs, metadata, and intake status.",
-        tags: ["Answer Script Intake"],
+        summary: "List Ingested Answer Sheets",
+        description: "Returns paginated list of ingested answer sheets with anonymized IDs, metadata, and intake status.",
+        tags: ["Answer Sheet Intake"],
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: "examId", in: "query", schema: { type: "string" } },
@@ -646,7 +646,7 @@ export const openApiSpec = {
           { name: "limit", in: "query", schema: { type: "integer", default: 25 } },
         ],
         responses: {
-          "200": { description: "Paginated list of answer scripts" },
+          "200": { description: "Paginated list of answer sheets" },
           "401": { description: "Unauthorized" },
           "403": { description: "Forbidden" },
         },
@@ -654,52 +654,52 @@ export const openApiSpec = {
     },
     "/scripts/{scriptId}": {
       get: {
-        summary: "Get Ingested Script Details",
-        description: "Retrieves details of an ingested answer script, including anonymized script code, original filename, page count, checksum, and storage reference.",
-        tags: ["Answer Script Intake"],
+        summary: "Get Ingested Sheet Details",
+        description: "Retrieves details of an ingested answer sheet, including anonymized sheet code, original filename, page count, checksum, and storage reference.",
+        tags: ["Answer Sheet Intake"],
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: "scriptId", in: "path", required: true, schema: { type: "string" } },
         ],
         responses: {
-          "200": { description: "Answer script details" },
-          "404": { description: "Script not found" },
+          "200": { description: "Answer sheet details" },
+          "404": { description: "Sheet not found" },
         },
       },
     },
     "/exams/{examId}/scripts": {
       get: {
-        summary: "List Scripts for Examination",
-        description: "Retrieves all ingested answer scripts belonging to a specific examination.",
-        tags: ["Answer Script Intake"],
+        summary: "List Sheets for Examination",
+        description: "Retrieves all ingested answer sheets belonging to a specific examination.",
+        tags: ["Answer Sheet Intake"],
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: "examId", in: "path", required: true, schema: { type: "string" } },
         ],
         responses: {
-          "200": { description: "List of scripts" },
+          "200": { description: "List of sheets" },
           "404": { description: "Exam not found" },
         },
       },
     },
     "/subjects/{subjectId}/scripts": {
       get: {
-        summary: "List Scripts for Subject",
-        description: "Retrieves all ingested answer scripts belonging to a specific subject.",
-        tags: ["Answer Script Intake"],
+        summary: "List Sheets for Subject",
+        description: "Retrieves all ingested answer sheets belonging to a specific subject.",
+        tags: ["Answer Sheet Intake"],
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: "subjectId", in: "path", required: true, schema: { type: "string" } },
         ],
         responses: {
-          "200": { description: "List of scripts" },
+          "200": { description: "List of sheets" },
           "404": { description: "Subject not found" },
         },
       },
     },
     "/scripts/{scriptId}/process": {
       post: {
-        summary: "Process Answer Script Document",
+        summary: "Process Answer Sheet Document",
         description: "Initiates PDF inspection, page extraction, image preprocessing, and OCR text/layout extraction via Google Cloud Vision API.",
         tags: ["Document Processing & OCR"],
         security: [{ bearerAuth: [] }],
@@ -730,7 +730,7 @@ export const openApiSpec = {
           "200": { description: "Processing completed with page summary and confidence metrics" },
           "401": { description: "Unauthorized" },
           "403": { description: "Forbidden - Requires SUPER_ADMIN or HEAD_EXAMINER" },
-          "404": { description: "Answer script not found" },
+          "404": { description: "Answer sheet not found" },
           "422": { description: "PDF processing or page extraction failed" },
           "502": { description: "Storage retrieval failed" },
         },
@@ -738,7 +738,7 @@ export const openApiSpec = {
     },
     "/scripts/{scriptId}/reprocess": {
       post: {
-        summary: "Reprocess Answer Script Document",
+        summary: "Reprocess Answer Sheet Document",
         description: "Forces fresh OCR extraction and creates versioned OCR artifacts (e.g. v2) while strictly preserving historical OCR runs and original PDF.",
         tags: ["Document Processing & OCR"],
         security: [{ bearerAuth: [] }],
@@ -749,7 +749,7 @@ export const openApiSpec = {
           "200": { description: "Reprocessing completed with new OCR version" },
           "401": { description: "Unauthorized" },
           "403": { description: "Forbidden - Requires SUPER_ADMIN or HEAD_EXAMINER" },
-          "404": { description: "Answer script not found" },
+          "404": { description: "Answer sheet not found" },
         },
       },
     },
@@ -765,14 +765,14 @@ export const openApiSpec = {
         responses: {
           "200": { description: "Processing status and page overview" },
           "401": { description: "Unauthorized" },
-          "404": { description: "Answer script not found" },
+          "404": { description: "Answer sheet not found" },
         },
       },
     },
     "/scripts/{scriptId}/pages": {
       get: {
-        summary: "List Derived Script Pages",
-        description: "Retrieves all extracted pages for the answer script with latest OCR results and bounding boxes.",
+        summary: "List Derived Sheet Pages",
+        description: "Retrieves all extracted pages for the answer sheet with latest OCR results and bounding boxes.",
         tags: ["Document Processing & OCR"],
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -781,14 +781,14 @@ export const openApiSpec = {
         responses: {
           "200": { description: "List of derived pages with OCR output" },
           "401": { description: "Unauthorized" },
-          "404": { description: "Answer script not found" },
+          "404": { description: "Answer sheet not found" },
         },
       },
     },
     "/scripts/{scriptId}/pages/{pageId}": {
       get: {
         summary: "Get Page Detail and OCR History",
-        description: "Retrieves a single script page with dimensions, quality score, and complete historical OCR result versions.",
+        description: "Retrieves a single sheet page with dimensions, quality score, and complete historical OCR result versions.",
         tags: ["Document Processing & OCR"],
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -827,7 +827,7 @@ export const openApiSpec = {
           "200": { description: "Reconstruction completed successfully" },
           "401": { description: "Unauthorized" },
           "403": { description: "Forbidden - Requires SUPER_ADMIN or HEAD_EXAMINER" },
-          "404": { description: "Answer script not found" },
+          "404": { description: "Answer sheet not found" },
           "412": { description: "Precondition failed - OCR or question structure missing" },
         },
       },
@@ -845,7 +845,7 @@ export const openApiSpec = {
           "200": { description: "New reconstruction version created" },
           "401": { description: "Unauthorized" },
           "403": { description: "Forbidden - Requires SUPER_ADMIN or HEAD_EXAMINER" },
-          "404": { description: "Answer script not found" },
+          "404": { description: "Answer sheet not found" },
         },
       },
     },
@@ -869,7 +869,7 @@ export const openApiSpec = {
     "/scripts/{scriptId}/attempts": {
       get: {
         summary: "List Question Attempts",
-        description: "Retrieves all reconstructed question attempts for the specified script.",
+        description: "Retrieves all reconstructed question attempts for the specified sheet.",
         tags: ["Answer Reconstruction & Question Mapping"],
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -943,8 +943,8 @@ export const openApiSpec = {
     },
     "/scripts/{scriptId}/supplementary/link": {
       post: {
-        summary: "Link Supplementary Script",
-        description: "Links a supplementary answer booklet to a main answer script.",
+        summary: "Link Supplementary Sheet",
+        description: "Links a supplementary answer booklet to a main answer sheet.",
         tags: ["Answer Reconstruction & Question Mapping"],
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -967,7 +967,7 @@ export const openApiSpec = {
           },
         },
         responses: {
-          "200": { description: "Supplementary script linked successfully" },
+          "200": { description: "Supplementary sheet linked successfully" },
           "403": { description: "Forbidden" },
         },
       },

@@ -65,7 +65,7 @@ export class ResultService {
     });
 
     if (!script) {
-      throw new Error(`AnswerScript ${scriptId} not found.`);
+      throw new Error(`Answer sheet ${scriptId} not found.`);
     }
 
     // 1. Run Validation
@@ -423,7 +423,7 @@ export class ResultService {
         : result;
 
     if (!targetResult) {
-      throw new Error(`Result version ${requestedVersion} not found for script ${result.scriptId}.`);
+      throw new Error(`Result version ${requestedVersion} not found for sheet ${result.scriptId}.`);
     }
 
     const reportPayload = {

@@ -880,7 +880,7 @@ export class EvaluationService {
         {
           issueType: 'DUPLICATE_ATTEMPT',
           severity: 'HIGH',
-          message: 'Duplicate attempt found in script. Human decision needed.',
+          message: 'Duplicate attempt found in sheet. Human decision needed.',
           requiresReview: true,
         },
       ],

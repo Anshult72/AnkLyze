@@ -89,7 +89,7 @@ export class ResultValidationService {
     });
 
     if (!script) {
-      throw new Error(`AnswerScript with ID ${scriptId} not found.`);
+      throw new Error(`Answer sheet with ID ${scriptId} not found.`);
     }
 
     const exam = script.exam;
