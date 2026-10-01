@@ -10,9 +10,9 @@ interface WorkSummaryProps {
 export default function WorkSummary({ metrics }: WorkSummaryProps) {
   const items = [
     {
-      label: "Assigned Scripts",
+      label: "Assigned Sheets",
       value: metrics.assignedScripts,
-      detail: "Total allocated batch",
+      detail: "Total allocated to you",
     },
     {
       label: "Completed",
@@ -25,9 +25,9 @@ export default function WorkSummary({ metrics }: WorkSummaryProps) {
       detail: "Awaiting evaluation",
     },
     {
-      label: "Flagged in batch",
+      label: "Needs Attention",
       value: metrics.needsReview,
-      detail: "Across all assigned scripts",
+      detail: "Flagged across assigned work",
     },
   ];
 

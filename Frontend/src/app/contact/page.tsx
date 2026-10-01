@@ -23,7 +23,7 @@ export default function ContactPage() {
 
   const emailBody = [
     `Name: ${form.name}`, `Official email: ${form.email}`, `Institution: ${form.institution}`,
-    `Role: ${form.role || "Not specified"}`, `Script volume: ${form.volume || "Not specified"}`,
+    `Role: ${form.role || "Not specified"}`, `Sheet volume: ${form.volume || "Not specified"}`,
     `Interest: ${form.interest}`, "", form.message || "Please contact me to discuss an evaluation pilot.",
   ].join("\n");
   const emailHref = `mailto:${inbox}?subject=${encodeURIComponent(`ANKLYZE enquiry — ${form.institution}`)}&body=${encodeURIComponent(emailBody)}`;
@@ -41,10 +41,10 @@ export default function ContactPage() {
           <section className={styles.intro}>
             <span className={styles.eyebrow}>LET&apos;S BEGIN / YOUR EXAMINATION CYCLE</span>
             <h1>Put your questions <em>on the table.</em></h1>
-            <p>Tell us about your scripts, marking scheme and review process. A useful pilot starts with the realities of your institution.</p>
+            <p>Tell us about your sheets, marking scheme and review process. A useful pilot starts with the realities of your institution.</p>
             <div className={styles.sequence}>
               <div><span>01</span><strong>Share the context</strong><p>Subjects, volume and the kind of answers you evaluate.</p></div>
-              <div><span>02</span><strong>Choose a sample</strong><p>Start with a defined set of scripts and the rubric you already use.</p></div>
+              <div><span>02</span><strong>Choose a sample</strong><p>Start with a defined set of sheets and the rubric you already use.</p></div>
               <div><span>03</span><strong>Review together</strong><p>Compare the first pass with the educator&apos;s own judgement.</p></div>
             </div>
             <div className={styles.direct}><Mail size={17} /><span>Prefer email? <a href={`mailto:${inbox}`}>{inbox}</a></span></div>
@@ -71,7 +71,7 @@ export default function ContactPage() {
                   <label>Official email <input type="email" required value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} placeholder="name@institution.edu" /></label>
                   <label>Institution <input required value={form.institution} onChange={event => setForm({ ...form, institution: event.target.value })} placeholder="University or examination board" /></label>
                   <label>Role <select value={form.role} onChange={event => setForm({ ...form, role: event.target.value })}><option value="">Select your role</option><option>Controller of Examinations</option><option>Registrar</option><option>Dean or Department Head</option><option>Examiner or Moderator</option><option>Technology Lead</option><option>Other</option></select></label>
-                  <label>Approximate script volume <select value={form.volume} onChange={event => setForm({ ...form, volume: event.target.value })}><option value="">Select a range</option><option>Under 10,000 per cycle</option><option>10,000–50,000 per cycle</option><option>50,000–200,000 per cycle</option><option>More than 200,000 per cycle</option></select></label>
+                  <label>Approximate sheet volume <select value={form.volume} onChange={event => setForm({ ...form, volume: event.target.value })}><option value="">Select a range</option><option>Under 10,000 per cycle</option><option>10,000–50,000 per cycle</option><option>50,000–200,000 per cycle</option><option>More than 200,000 per cycle</option></select></label>
                   <label>What would you like to explore? <input value={form.interest} onChange={event => setForm({ ...form, interest: event.target.value })} /></label>
                   <label className={styles.fullField}>A little more context <textarea rows={4} value={form.message} onChange={event => setForm({ ...form, message: event.target.value })} placeholder="Subjects, current review process, or a question for us…" /></label>
                 </div>

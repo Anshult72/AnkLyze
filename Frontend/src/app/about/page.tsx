@@ -47,7 +47,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        <section className={styles.aboutClosing}><span>WHERE THE WORK GOES NEXT</span><h2>Put a real script on the table.</h2><p>See how a rubric-linked draft and a faculty decision can sit side by side.</p><div><Link href="/examiner/dashboard">Explore examiner desk <ArrowUpRight size={17} /></Link><Link href="/contact">Talk to our team <ArrowRight size={17} /></Link></div></section>
+        <section className={styles.aboutClosing}><span>WHERE THE WORK GOES NEXT</span><h2>Put a real answer sheet on the table.</h2><p>See how a rubric-linked draft and a faculty decision can sit side by side.</p><div><Link href="/examiner/dashboard">Explore examiner desk <ArrowUpRight size={17} /></Link><Link href="/contact">Talk to our team <ArrowRight size={17} /></Link></div></section>
       </main>
       <MarketingFooter />
     </div>

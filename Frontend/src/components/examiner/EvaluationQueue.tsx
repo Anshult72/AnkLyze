@@ -97,14 +97,14 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
         <div>
           <div className="flex items-center space-x-2">
             <h2 id="evaluation-queue-heading" className="font-serif text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-              Assigned scripts
+              Assigned sheets
             </h2>
             <span className="text-xs font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
               {filteredScripts.length} of {scripts.length}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Choose a script to continue marking.
+            Choose a sheet to continue marking.
           </p>
         </div>
 
@@ -163,7 +163,7 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search Script ID..."
+              placeholder="Search Sheet ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-full sm:w-44"
@@ -177,7 +177,7 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-50 text-slate-600 uppercase font-mono text-[10px] tracking-wider border-b border-slate-200/80">
             <tr>
-              <th scope="col" className="px-5 py-3.5 font-bold">Script ID</th>
+              <th scope="col" className="px-5 py-3.5 font-bold">Sheet ID</th>
               <th scope="col" className="px-4 py-3.5 font-bold">Status</th>
               <th scope="col" className="px-4 py-3.5 font-bold">Answers read</th>
               <th scope="col" className="px-4 py-3.5 font-bold">Confidence</th>
@@ -190,7 +190,7 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
             {filteredScripts.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-5 py-8 text-center text-slate-500">
-                  No scripts found matching the active filter.
+                  No sheets found matching the active filter.
                 </td>
               </tr>
             ) : (
@@ -256,7 +256,7 @@ export default function EvaluationQueue({ scripts }: EvaluationQueueProps) {
                   {/* Action */}
                   <td className="px-5 py-3.5 text-right whitespace-nowrap">
                     {(() => {
-                      const cleanId = script.scriptId.replace(/^SCRIPT\s+/, "");
+                      const cleanId = script.scriptId.replace(/^(?:SCRIPT|SHEET)\s+/, "");
                       const isReview = script.status === "Needs Review" || script.status === "Attention";
                       return (
                         <Link

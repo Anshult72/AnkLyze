@@ -30,7 +30,7 @@ export default function ProgressSection({ metrics }: ProgressSectionProps) {
             <span className="font-serif font-bold text-slate-900 text-lg sm:text-xl">
               {metrics.completedScripts} of {metrics.totalAssigned}
             </span>{" "}
-            <span className="text-slate-500 font-medium">scripts completed</span>
+            <span className="text-slate-500 font-medium">sheets completed</span>
           </div>
           <span className="font-bold font-mono text-base text-blue-600">
             {metrics.percentage}%
@@ -46,18 +46,18 @@ export default function ProgressSection({ metrics }: ProgressSectionProps) {
             aria-valuenow={metrics.percentage}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`${metrics.percentage}% of scripts completed`}
+            aria-label={`${metrics.percentage}% of sheets completed`}
           />
         </div>
       </div>
 
       {/* Supporting Workload Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 pt-4 border-t border-slate-100">
+      <div className={`grid ${metrics.totalEvaluationTimeToday ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"} gap-3 mt-5 pt-4 border-t border-slate-100`}>
         
         {/* Speed / Pace Metric */}
         <div className="space-y-1">
           <div className="text-xs text-slate-500">
-            <span className="font-semibold uppercase tracking-wider text-[10px] font-mono">Average time / script</span>
+            <span className="font-semibold uppercase tracking-wider text-[10px] font-mono">Average time / sheet</span>
           </div>
           <div className="flex items-baseline space-x-1">
             <span className="font-serif font-bold text-slate-900 text-xl">{metrics.averageTimePerScript}</span>
@@ -68,13 +68,26 @@ export default function ProgressSection({ metrics }: ProgressSectionProps) {
         {/* Estimated Completion Time */}
         <div className="space-y-1">
           <div className="text-xs text-slate-500">
-            <span className="font-semibold uppercase tracking-wider text-[10px] font-mono">Estimated time remaining</span>
+            <span className="font-semibold uppercase tracking-wider text-[10px] font-mono">Estimated remaining</span>
           </div>
           <div className="flex items-baseline space-x-1">
             <span className="font-serif font-bold text-slate-900 text-xl">{metrics.estimatedRemainingWorkload}</span>
             <span className="text-xs text-slate-500 font-medium">workload</span>
           </div>
         </div>
+
+        {/* Total Evaluation Time (Optional) */}
+        {metrics.totalEvaluationTimeToday && (
+          <div className="space-y-1">
+            <div className="text-xs text-slate-500">
+              <span className="font-semibold uppercase tracking-wider text-[10px] font-mono">Total session time</span>
+            </div>
+            <div className="flex items-baseline space-x-1">
+              <span className="font-serif font-bold text-slate-900 text-xl">{metrics.totalEvaluationTimeToday}</span>
+              <span className="text-xs text-slate-500 font-medium">today</span>
+            </div>
+          </div>
+        )}
 
       </div>
 

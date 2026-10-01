@@ -7,14 +7,14 @@ import { usePathname } from "next/navigation";
 import {
   BookOpenCheck, ChartNoAxesCombined, ChevronDown,
   ClipboardList, FileStack, LayoutDashboard, LogOut, Menu,
-  ShieldCheck, UserRound, X,
+  ShieldCheck, UserRound, UsersRound, X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { EXAMINER_CONTEXT } from "@/data/examinerMockData";
 import styles from "./TopNavigation.module.css";
 
 interface TopNavigationProps {
-  activeTab?: "dashboard" | "evaluations" | "review" | "reports" | "admin-exams" | "admin-scripts";
+  activeTab?: "dashboard" | "evaluations" | "review" | "reports" | "admin-exams" | "admin-scripts" | "admin-examiners";
 }
 
 const baseItems = [
@@ -26,7 +26,11 @@ const baseItems = [
 
 const adminItems = [
   { id: "admin-exams", label: "Exam Management", href: "/admin/exams", icon: FileStack },
-  { id: "admin-scripts", label: "Script Intake", href: "/admin/scripts", icon: ShieldCheck },
+  { id: "admin-scripts", label: "Sheet Intake", href: "/admin/scripts", icon: ShieldCheck },
+] as const;
+
+const superAdminItems = [
+  { id: "admin-examiners", label: "Examiner Accounts", href: "/admin/examiners", icon: UsersRound },
 ] as const;
 
 export default function TopNavigation({ activeTab = "dashboard" }: TopNavigationProps) {
@@ -34,7 +38,7 @@ export default function TopNavigation({ activeTab = "dashboard" }: TopNavigation
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const pathname = usePathname();
-  const selectedNav = [...baseItems, ...adminItems].find(item => item.href === pathname)?.id ?? activeTab;
+  const selectedNav = [...baseItems, ...adminItems, ...superAdminItems].find(item => item.href === pathname)?.id ?? activeTab;
 
   const displayName = user?.fullName || EXAMINER_CONTEXT.examinerName;
   const displayRole = user?.role || "EXAMINER";
@@ -56,7 +60,7 @@ export default function TopNavigation({ activeTab = "dashboard" }: TopNavigation
     return () => window.removeEventListener("keydown", onEscape);
   }, []);
 
-  const renderLink = (item: (typeof baseItems)[number] | (typeof adminItems)[number]) => {
+  const renderLink = (item: (typeof baseItems)[number] | (typeof adminItems)[number] | (typeof superAdminItems)[number]) => {
     const Icon = item.icon;
     const selected = selectedNav === item.id;
     return (
@@ -92,6 +96,7 @@ export default function TopNavigation({ activeTab = "dashboard" }: TopNavigation
           {isAdminOrHead && (
             <div className={styles.navGroup}>
               {adminItems.map(renderLink)}
+              {displayRole === "SUPER_ADMIN" && superAdminItems.map(renderLink)}
             </div>
           )}
         </nav>

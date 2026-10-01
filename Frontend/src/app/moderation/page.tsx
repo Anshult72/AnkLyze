@@ -186,7 +186,7 @@ export default function ModerationQueuePage() {
                         {c.status.replace(/_/g, " ")}
                       </span>
                       <span className="text-xs text-slate-500 font-mono">
-                        {c.subject} ({c.subjectCode}) • Script <strong>{c.scriptId}</strong> • <strong>{c.questionNumber}</strong>
+                        {c.subject} ({c.subjectCode}) • Sheet <strong>{c.scriptId}</strong> • <strong>{c.questionNumber}</strong>
                       </span>
                     </div>
 

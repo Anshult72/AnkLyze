@@ -3,18 +3,16 @@
 import TopNavigation from "./TopNavigation";
 import EvaluationQueue from "./EvaluationQueue";
 import AttentionList from "./AttentionList";
-import ProgressSection from "./ProgressSection";
-import RecentActivity from "./RecentActivity";
-import WorkSummary from "./WorkSummary";
+import ExaminerReportsView from "./ExaminerReportsView";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { EVALUATION_QUEUE_DATA, ATTENTION_ITEMS_DATA, PROGRESS_METRICS_DATA, RECENT_ACTIVITY_DATA, WORK_SUMMARY_DATA } from "@/data/examinerMockData";
+import { EVALUATION_QUEUE_DATA, ATTENTION_ITEMS_DATA } from "@/data/examinerMockData";
 import { EXAMINER_CONTEXT } from "@/data/examinerMockData";
 import styles from "@/app/examiner/ExaminerPages.module.css";
 
 const sections = {
-  evaluations: { title: "My evaluations", description: "The scripts assigned to you. Pick up where you left off, or filter the queue to find one." },
+  evaluations: { title: "My evaluations", description: "The sheets assigned to you. Pick up where you left off, or filter the queue to find one." },
   review: { title: "Review queue", description: "Answers that need a second look before their marks are finalized." },
-  reports: { title: "Reports", description: "Batch progress and a record of recent evaluation work." },
+  reports: { title: "Reports", description: "Batch evaluation records, marking distribution, question review density, and operational workload." },
 };
 
 export default function ExaminerSectionPage({ section }: { section: keyof typeof sections }) {
@@ -33,17 +31,18 @@ export default function ExaminerSectionPage({ section }: { section: keyof typeof
             <span className={styles.sectionMeta}>{EXAMINER_CONTEXT.session}</span>
           </header>
           <div className={styles.sectionContent}>
-            {section === "evaluations" && <EvaluationQueue scripts={EVALUATION_QUEUE_DATA} />}
-            {section === "review" && <AttentionList items={ATTENTION_ITEMS_DATA} />}
-            {section === "reports" && (
-            <>
-              <WorkSummary metrics={WORK_SUMMARY_DATA} />
-              <div className={styles.reportsGrid}>
-                <ProgressSection metrics={PROGRESS_METRICS_DATA} />
-                <RecentActivity activities={RECENT_ACTIVITY_DATA} />
-              </div>
-            </>
+            {section === "evaluations" && (
+              <>
+                <div className={styles.queueOverview} aria-label="Assigned sheet status">
+                  <div><span className={styles.overline}>Ready to mark</span><strong>{EVALUATION_QUEUE_DATA.filter((sheet) => sheet.status === "AI Ready").length}</strong><p>AI suggestions ready for your decision</p></div>
+                  <div><span className={styles.overline}>Needs review</span><strong>{EVALUATION_QUEUE_DATA.filter((sheet) => sheet.status === "Needs Review").length}</strong><p>Check the question before finalizing</p></div>
+                  <div><span className={styles.overline}>Attention</span><strong>{EVALUATION_QUEUE_DATA.filter((sheet) => sheet.status === "Attention").length}</strong><p>Resolve scan or confidence concerns</p></div>
+                </div>
+                <EvaluationQueue scripts={EVALUATION_QUEUE_DATA} />
+              </>
             )}
+            {section === "review" && <AttentionList items={ATTENTION_ITEMS_DATA} />}
+            {section === "reports" && <ExaminerReportsView />}
           </div>
         </main>
       </div>

@@ -210,7 +210,7 @@ export default function ResultDetailPage() {
 
             <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 pt-1">
               <div>
-                <span className="text-slate-400">Script ID: </span>
+                <span className="text-slate-400">Sheet ID: </span>
                 <span className="font-mono font-medium text-slate-800">{result.scriptId}</span>
               </div>
               <div className="h-3 w-px bg-stone-200" />

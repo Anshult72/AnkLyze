@@ -129,7 +129,7 @@ export default function BookScrollStory() {
           </div>
         </div>
         <div className={styles.finalDetails}><HeroDetails /></div>
-        <p className={styles.caption}>A physical script becomes a clearer, more accountable evaluation workflow.</p>
+        <p className={styles.caption}>A physical sheet becomes a clearer, more accountable evaluation workflow.</p>
         <span className={styles.scrollCue} aria-hidden="true">SCROLL TO FOLLOW THE PAPER <span>↓</span></span>
       </div>
       <div className={styles.reducedContent}><h1>Every answer has a story.<br /><em>Every mark should too.</em></h1><div className={styles.reducedDetails}><HeroDetails /></div></div>

@@ -81,7 +81,7 @@ export interface ScriptEvaluationDataset {
 
 export const MOCK_EVALUATION_SCRIPTS: Record<string, ScriptEvaluationDataset> = {
   "A-10492": {
-    scriptId: "SCRIPT A-10492",
+    scriptId: "SHEET A-10492",
     anonymizedCode: "ANON-0492-MPONL",
     examination: "B.Tech CSE",
     semester: "Semester III",
@@ -345,7 +345,7 @@ export type EvaluationWorkspaceData = ScriptEvaluationDataset;
 export const EVALUATION_DATASET_MOCK: EvaluationWorkspaceData = MOCK_EVALUATION_SCRIPTS["A-10492"];
 
 export function getScriptDataset(scriptId: string): ScriptEvaluationDataset {
-  const cleanId = scriptId.replace(/^SCRIPT\s+/i, "").trim();
+  const cleanId = scriptId.replace(/^(?:SCRIPT|SHEET)\s+/i, "").trim();
   if (MOCK_EVALUATION_SCRIPTS[cleanId]) {
     return MOCK_EVALUATION_SCRIPTS[cleanId];
   }

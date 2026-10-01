@@ -155,7 +155,7 @@ export default function AdminResultsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Scripts</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Sheets</span>
               <FileText className="w-4 h-4 text-slate-400" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
@@ -204,7 +204,7 @@ export default function AdminResultsPage() {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by candidate ref, script ID, subject..."
+              placeholder="Search by candidate ref, sheet ID, subject..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs rounded-lg border border-stone-300 bg-stone-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"

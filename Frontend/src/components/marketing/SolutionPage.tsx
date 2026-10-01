@@ -25,10 +25,10 @@ const content = {
     closing: "A faster first pass. A more thoughtful final one.",
   },
   handwriting: {
-    issue: "02 / HANDWRITTEN SCRIPTS",
+    issue: "02 / HANDWRITTEN SHEETS",
     title: <>Read the work <em>as it was written.</em></>,
-    description: "Messy margins, crossed-out starts and working between the lines carry meaning. The original page stays in view as the script is interpreted.",
-    firstAction: "Try sample scripts",
+    description: "Messy margins, crossed-out starts and working between the lines carry meaning. The original page stays in view as the sheet is interpreted.",
+    firstAction: "Try sample sheets",
     contact: "/contact?solution=handwritten",
     exampleLabel: "ORIGINAL PAGE / TRANSCRIPTION",
     exampleTitle: "The student’s working",

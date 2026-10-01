@@ -615,7 +615,7 @@ export default function AnswerSheetViewer({
               <div className="py-20 text-center space-y-3 font-sans">
                 <FileText className="w-12 h-12 text-slate-300 mx-auto" />
                 <div className="font-serif text-lg font-bold text-slate-700">
-                  Page {currentPage} of Digital Answer Script
+                  Page {currentPage} of Digital Answer Sheet
                 </div>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
                   Viewing supplementary booklet page. Click &ldquo;Pg 04&rdquo; in the tab strip above to inspect Question 04.

@@ -6,7 +6,7 @@ import styles from "./MarketingFooter.module.css";
 const groups = [
   { title: "Explore", links: [
     { href: "/ai-answer-sheet-evaluation", label: "AI evaluation" },
-    { href: "/handwritten-answer-sheet-grading", label: "Handwritten scripts" },
+    { href: "/handwritten-answer-sheet-grading", label: "Handwritten sheets" },
     { href: "/subjective-answer-evaluation", label: "Long answers" },
     { href: "/pricing", label: "Pricing" },
   ] },
@@ -33,7 +33,7 @@ export default function MarketingFooter() {
             <h2>Give every answer<br /><em>the attention it deserves.</em></h2>
           </div>
           <div className={styles.ctaAction}>
-            <p>Bring a sample set of scripts. We&apos;ll show you what a thoughtful first pass can look like.</p>
+            <p>Bring a sample set of sheets. We&apos;ll show you what a thoughtful first pass can look like.</p>
             <Link href="/examiner/dashboard" className={styles.primary}>Portal <ArrowRight size={18} /></Link>
             <Link href="/pricing" className={styles.secondary}>Explore plans <ArrowUpRight size={16} /></Link>
           </div>

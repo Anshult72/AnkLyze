@@ -19,7 +19,10 @@ export default function AttentionList({ items }: AttentionListProps) {
     setResolvedIds((prev) => [...prev, id]);
   };
 
-  const activeItems = items.filter((item) => !resolvedIds.includes(item.id));
+  const activeItems = items
+    .filter((item) => !resolvedIds.includes(item.id))
+    .sort((a, b) => Number(b.severity === "High") - Number(a.severity === "High"));
+  const highPriorityCount = activeItems.filter((item) => item.severity === "High").length;
 
   const getSeverityIndicator = (severity: "High" | "Medium" | "Low") => {
     switch (severity) {
@@ -65,8 +68,13 @@ export default function AttentionList({ items }: AttentionListProps) {
         </div>
       </div>
 
+      <div className={styles.reviewOverview} aria-label="Review priority summary">
+        <div><strong>{highPriorityCount}</strong><span>High priority · inspect first</span></div>
+        <div><strong>{activeItems.length - highPriorityCount}</strong><span>Other flagged answers</span></div>
+      </div>
+
       {/* Item List */}
-      <div className="divide-y divide-slate-100">
+      <div className={styles.reviewGrid}>
         {activeItems.length === 0 ? (
           <div className="p-8 text-center text-xs text-slate-500 space-y-2">
             <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
@@ -80,9 +88,9 @@ export default function AttentionList({ items }: AttentionListProps) {
             const sev = getSeverityIndicator(item.severity);
 
             return (
-              <div
+              <article
                 key={item.id}
-                className="p-4 sm:p-5 hover:bg-slate-50/60 transition-colors relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                className={styles.reviewItem}
               >
                 {/* Left Severity Indicator Strip */}
                 <div
@@ -90,7 +98,7 @@ export default function AttentionList({ items }: AttentionListProps) {
                   aria-hidden="true"
                 />
 
-                <div className="space-y-1.5 flex-1 pl-2">
+                <div className={`${styles.reviewItemBody} space-y-1.5`}>
                   <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                     <span className="text-xs font-mono font-bold bg-slate-900 text-white px-2 py-0.5 rounded-md">
                       {item.scriptId}
@@ -119,7 +127,7 @@ export default function AttentionList({ items }: AttentionListProps) {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center space-x-2 self-start sm:self-center shrink-0 pl-2 sm:pl-0">
+                <div className={styles.reviewActions}>
                   <button
                     type="button"
                     onClick={(e) => handleQuickDismiss(item.id, e)}
@@ -130,7 +138,7 @@ export default function AttentionList({ items }: AttentionListProps) {
                   </button>
 
                   <Link
-                    href={`/examiner/evaluate/${item.scriptId.replace(/^SCRIPT\s+/, "")}`}
+                    href={`/examiner/evaluate/${item.scriptId.replace(/^(?:SCRIPT|SHEET)\s+/, "")}`}
                     className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 hover:border-blue-600 hover:bg-blue-50/60 text-slate-800 transition-colors shadow-2xs"
                   >
                     <span>Inspect</span>
@@ -138,7 +146,7 @@ export default function AttentionList({ items }: AttentionListProps) {
                   </Link>
                 </div>
 
-              </div>
+              </article>
             );
           })
         )}

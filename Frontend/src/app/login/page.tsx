@@ -202,41 +202,29 @@ function LoginForm() {
             <span className="text-[10px] text-slate-400">Click to fill</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-3 gap-2 text-xs">
             <button
               type="button"
               onClick={() => fillDemoCredentials("examiner@anklyze.demo")}
-              className="p-2.5 text-left rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-[#eaf2ee] hover:border-[#b9d7d0] transition-colors group"
+              className="min-h-12 p-2.5 text-center rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-[#eaf2ee] hover:border-[#b9d7d0] transition-colors group"
             >
               <div className="font-semibold text-slate-800 group-hover:text-[#276871]">Examiner</div>
-              <div className="text-[10px] text-slate-500 truncate">Prof. R.K. Sharma</div>
             </button>
 
             <button
               type="button"
               onClick={() => fillDemoCredentials("head.examiner@anklyze.demo")}
-              className="p-2.5 text-left rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-[#eaf2ee] hover:border-[#b9d7d0] transition-colors group"
+              className="min-h-12 p-2.5 text-center rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-[#eaf2ee] hover:border-[#b9d7d0] transition-colors group"
             >
               <div className="font-semibold text-slate-800 group-hover:text-[#276871]">Head Examiner</div>
-              <div className="text-[10px] text-slate-500 truncate">Prof. M. Joshi</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => fillDemoCredentials("moderator@anklyze.demo")}
-              className="p-2.5 text-left rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-[#eaf2ee] hover:border-[#b9d7d0] transition-colors group"
-            >
-              <div className="font-semibold text-slate-800 group-hover:text-[#276871]">Moderator</div>
-              <div className="text-[10px] text-slate-500 truncate">Dr. Anita Verma</div>
             </button>
 
             <button
               type="button"
               onClick={() => fillDemoCredentials("superadmin@anklyze.demo")}
-              className="p-2.5 text-left rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-[#eaf2ee] hover:border-[#b9d7d0] transition-colors group"
+              className="min-h-12 p-2.5 text-center rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-[#eaf2ee] hover:border-[#b9d7d0] transition-colors group"
             >
-              <div className="font-semibold text-slate-800 group-hover:text-[#276871]">Super Admin</div>
-              <div className="text-[10px] text-slate-500 truncate">Platform Admin</div>
+              <div className="font-semibold text-slate-800 group-hover:text-[#276871]">Admin</div>
             </button>
           </div>
         </div>
@@ -269,7 +257,7 @@ export default function LoginPage() {
         <div className={styles.storyBody}>
           <span className={styles.chapter}>A CLEARER WAY TO EVALUATE</span>
           <h2>Give every answer<br /><em>the attention</em><br />it deserves.</h2>
-          <p>The script stays in view. The evidence stays connected. The educator keeps the final say.</p>
+          <p>The sheet stays in view. The evidence stays connected. The educator keeps the final say.</p>
           <div className={styles.paper}>
             <span>Q. 03 (B) / PHYSICS</span>
             <strong>Show your working.</strong>

@@ -50,9 +50,9 @@ export default function EvaluationWorkspaceHeader({
               <Image src="/anklyze-logo.png" alt="ANKLYZE" width={92} height={30} className="hidden sm:block w-23 h-auto object-contain" priority />
               <span className="text-slate-300 hidden sm:inline-block">•</span>
               <div className="flex items-center space-x-1.5">
-                <span className="text-xs text-slate-500 font-medium">Script ID:</span>
+                <span className="text-xs text-slate-500 font-medium">Sheet ID:</span>
                 <span className="font-mono font-bold text-sm text-slate-900 tracking-tight">
-                  {scriptId.replace(/^SCRIPT\s+/i, "")}
+                  {scriptId.replace(/^(?:SCRIPT|SHEET)\s+/i, "")}
                 </span>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-bold uppercase tracking-wider hidden md:inline-flex items-center space-x-1">

@@ -119,13 +119,13 @@ export default function WorkspaceBottomBar({
               type="button"
               onClick={() => {
                 onSave();
-                alert("All questions evaluated! Script ready for final batch sign-off.");
+                alert("All questions evaluated! Sheet ready for final batch sign-off.");
               }}
               className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all"
               id="btn-finalize-script"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Complete Script</span>
+              <span>Complete Sheet</span>
             </button>
           )}
 

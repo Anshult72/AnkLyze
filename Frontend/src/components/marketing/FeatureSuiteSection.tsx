@@ -24,10 +24,10 @@ const capabilities = [
   },
   {
     number: "03", label: "Moderation", icon: BookOpenCheck,
-    title: "A clear route from script to sign-off.",
+    title: "A clear route from sheet to sign-off.",
     description: "Give examiners and moderators a shared view of what was proposed, what changed, and who made the final decision.",
     tags: ["Role-based review", "Moderation queue", "Decision history"],
-    href: "/handwritten-answer-sheet-grading", link: "See script workflow",
+    href: "/handwritten-answer-sheet-grading", link: "See sheet workflow",
     sampleLabel: "REVIEW ROUTE", sampleValue: "01 → 02 → 03", sampleNote: "Examiner · Moderator · Approval", sampleFooter: "Every step has an owner",
   },
   {
@@ -41,7 +41,7 @@ const capabilities = [
   {
     number: "05", label: "Responsible records", icon: LockKeyhole,
     title: "The record should tell the whole story.",
-    description: "Keep the script, suggested mark, reviewer changes, and final decision together for a more accountable evaluation process.",
+    description: "Keep the sheet, suggested mark, reviewer changes, and final decision together for a more accountable evaluation process.",
     tags: ["Review history", "Controlled access", "Traceable changes"],
     href: "/resources#security", link: "Read the approach",
     sampleLabel: "REVIEW RECORD", sampleValue: "Q.03 / 4 marks", sampleNote: "Draft checked by faculty", sampleFooter: "Decision recorded",

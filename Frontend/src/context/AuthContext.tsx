@@ -104,75 +104,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const token: string = data.data.accessToken;
 
         // Keep access token strictly in-memory (never in localStorage/sessionStorage)
+        localStorage.removeItem("anklyze_demo_user");
         setUser(authenticatedUser);
         setAccessToken(token);
 
         return { success: true };
       } catch (err: unknown) {
-        // Fallback for standalone demo mode when backend is offline
-        if (email.toLowerCase().includes("admin") || email.toLowerCase().includes("super")) {
+        // Offline demo access is limited to the seeded demo accounts and password.
+        const demoAccounts: Record<string, { id: string; fullName: string; role: UserProfile["role"] }> = {
+          "superadmin@anklyze.demo": { id: "demo-admin-id", fullName: "ANKLYZE Platform Administrator", role: "SUPER_ADMIN" },
+          "head.examiner@anklyze.demo": { id: "demo-head-id", fullName: "Head Examiner", role: "HEAD_EXAMINER" },
+          "examiner@anklyze.demo": { id: "demo-examiner-id", fullName: "Examiner", role: "EXAMINER" },
+        };
+        const demoEmail = email.toLowerCase().trim();
+        const demoAccount = demoAccounts[demoEmail];
+        if (demoAccount && password === "AnklyzeDemo#2026") {
           const demoUser: UserProfile = {
-            id: "demo-admin-id",
-            email,
-            fullName: "Dr. Alok Verma (Super Admin)",
-            role: "SUPER_ADMIN",
+            id: demoAccount.id,
+            email: demoEmail,
+            fullName: demoAccount.fullName,
+            role: demoAccount.role,
             status: "ACTIVE",
-            department: "Evaluation Directorate",
-            institution: "MP State Board of Technical Examinations",
           };
-          if (typeof window !== "undefined") {
-            localStorage.setItem("anklyze_demo_user", JSON.stringify({ ...demoUser, accessToken: "demo-token-super-admin" }));
-          }
+          const demoToken = `demo-token-${demoAccount.id}`;
+          localStorage.setItem("anklyze_demo_user", JSON.stringify({ ...demoUser, accessToken: demoToken }));
           setUser(demoUser);
-          setAccessToken("demo-token-super-admin");
-          return { success: true };
-        } else if (email.toLowerCase().includes("head")) {
-          const demoUser: UserProfile = {
-            id: "demo-head-id",
-            email,
-            fullName: "Dr. Sunita Rao (Head Examiner)",
-            role: "HEAD_EXAMINER",
-            status: "ACTIVE",
-            department: "Department of Computer Science & Engineering",
-            institution: "Govt Engineering College, Jabalpur",
-          };
-          if (typeof window !== "undefined") {
-            localStorage.setItem("anklyze_demo_user", JSON.stringify({ ...demoUser, accessToken: "demo-token-head-examiner" }));
-          }
-          setUser(demoUser);
-          setAccessToken("demo-token-head-examiner");
-          return { success: true };
-        } else if (email.toLowerCase().includes("mod")) {
-          const demoUser: UserProfile = {
-            id: "demo-moderator-id",
-            email,
-            fullName: "Dr. Anita Verma (Moderator)",
-            role: "MODERATOR",
-            status: "ACTIVE",
-            department: "Applied Mathematics",
-            institution: "Govt Engineering College, Bhopal",
-          };
-          if (typeof window !== "undefined") {
-            localStorage.setItem("anklyze_demo_user", JSON.stringify({ ...demoUser, accessToken: "demo-token-moderator" }));
-          }
-          setUser(demoUser);
-          setAccessToken("demo-token-moderator");
-          return { success: true };
-        } else if (email.toLowerCase().includes("examiner")) {
-          const demoUser: UserProfile = {
-            id: "demo-examiner-id",
-            email,
-            fullName: "Prof. R. K. Sharma",
-            role: "EXAMINER",
-            status: "ACTIVE",
-            department: "Mathematics & Computing",
-            institution: "Maulana Azad National Institute of Technology",
-          };
-          if (typeof window !== "undefined") {
-            localStorage.setItem("anklyze_demo_user", JSON.stringify({ ...demoUser, accessToken: "demo-token-examiner" }));
-          }
-          setUser(demoUser);
-          setAccessToken("demo-token-examiner");
+          setAccessToken(demoToken);
           return { success: true };
         }
 

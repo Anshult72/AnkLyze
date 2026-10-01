@@ -8,8 +8,8 @@ import { ArrowUpRight, BookOpenText, ChevronDown, ClipboardCheck, FilePenLine, L
 import styles from "./MarketingNav.module.css";
 
 const solutions = [
-  { href: "/ai-answer-sheet-evaluation", title: "AI answer sheet evaluation", description: "A clearer first pass on every script", icon: ScanText },
-  { href: "/handwritten-answer-sheet-grading", title: "Handwritten script grading", description: "Read working, formulas and diagrams", icon: FilePenLine },
+  { href: "/ai-answer-sheet-evaluation", title: "AI answer sheet evaluation", description: "A clearer first pass on every sheet", icon: ScanText },
+  { href: "/handwritten-answer-sheet-grading", title: "Handwritten sheet grading", description: "Read working, formulas and diagrams", icon: FilePenLine },
   { href: "/subjective-answer-evaluation", title: "Subjective evaluation", description: "Consistent decisions for open answers", icon: ClipboardCheck },
 ];
 

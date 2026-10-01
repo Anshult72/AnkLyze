@@ -85,7 +85,7 @@ export default function ScriptDirectoryPage() {
             <h2 className="text-lg font-bold text-slate-900 mb-2">Access Restricted</h2>
             <p className="text-sm text-slate-600 mb-6">
               Only authorized Examination Administrators and Head Examiners may access the
-              Answer Script Intake Directory.
+              Answer Sheet Intake Directory.
             </p>
             <Link
               href="/examiner/dashboard"
@@ -114,21 +114,21 @@ export default function ScriptDirectoryPage() {
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-slate-500">Administration</span>
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-semibold text-slate-900">Answer Script Intake & Storage</span>
+            <span className="font-semibold text-slate-900">Answer Sheet Intake & Storage</span>
           </nav>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                  Answer Script Intake
+                  Answer Sheet Intake
                 </h1>
                 <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   Cloudinary Active
                 </span>
               </div>
               <p className="mt-1 text-sm text-slate-600">
-                Digitally scanned answer book ingestion, anonymized script identity, and cryptographic audit trail.
+                Digitally scanned answer book ingestion, anonymized sheet identity, and cryptographic audit trail.
               </p>
             </div>
 
@@ -148,7 +148,7 @@ export default function ScriptDirectoryPage() {
             <div className="bg-slate-50/80 rounded-lg p-3.5 border border-slate-200/80">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Ingested Scripts
+                  Ingested Sheets
                 </span>
                 <FileText className="w-4 h-4 text-blue-600" />
               </div>
@@ -199,7 +199,7 @@ export default function ScriptDirectoryPage() {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by Script ID (e.g. A-10492), file, or batch..."
+              placeholder="Search by Sheet ID (e.g. A-10492), file, or batch..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -246,7 +246,7 @@ export default function ScriptDirectoryPage() {
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Ingested Answer Scripts</h2>
+              <h2 className="text-sm font-bold text-slate-900">Ingested Answer Sheets</h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Showing {filteredScripts.length} of {totalScriptsCount} total answer books
               </p>
@@ -262,7 +262,7 @@ export default function ScriptDirectoryPage() {
               <thead className="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th scope="col" className="px-6 py-3.5">
-                    Script ID
+                    Sheet ID
                   </th>
                   <th scope="col" className="px-6 py-3.5">
                     Exam & Subject
@@ -289,7 +289,7 @@ export default function ScriptDirectoryPage() {
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                       <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      <p className="font-semibold text-slate-700">No answer scripts found</p>
+                      <p className="font-semibold text-slate-700">No answer sheets found</p>
                       <p className="text-xs text-slate-500 mt-1">
                         Try modifying search query or start a new intake batch.
                       </p>
