@@ -29,12 +29,25 @@ export default function ExaminerDashboardPage() {
             <div className={styles.heroAction}>
               <Link
                 className={styles.primaryLink}
-                href={desk.next ? `/examiner/evaluate/${getSheetCode(desk.next.scriptId)}` : "/examiner/evaluations"}
+                href={
+                  desk.next
+                    ? desk.next.status === "Independent Evaluation"
+                      ? `/examiner/evaluate/${getSheetCode(desk.next.scriptId)}?round=2&question=${desk.next.resumeQuestion || desk.next.lastQuestion || "Q04"}`
+                      : `/examiner/evaluate/${getSheetCode(desk.next.scriptId)}`
+                    : "/examiner/evaluations"
+                }
                 id="btn-continue-evaluation"
               >
                 {desk.next ? "Continue evaluation" : "View your queue"} <ArrowRight size={18} aria-hidden="true" />
               </Link>
-              {desk.next && <span>Next: Sheet {getSheetCode(desk.next.scriptId)} · {desk.next.status === "AI Ready" ? "Ready to evaluate" : desk.next.status}</span>}
+              {desk.next && (
+                <span>
+                  Next:{" "}
+                  {desk.next.status === "Independent Evaluation"
+                    ? `Sheet ${getSheetCode(desk.next.scriptId)} · ${desk.next.resumeQuestion || "Q04"} · Independent Evaluation`
+                    : `Sheet ${getSheetCode(desk.next.scriptId)} · ${desk.next.status === "AI Ready" ? "Ready to evaluate" : desk.next.status}`}
+                </span>
+              )}
             </div>
           </header>
 
@@ -71,19 +84,46 @@ export default function ExaminerDashboardPage() {
                 <div className={styles.queueList}>
                   {desk.queuePreview.map((sheet, index) => {
                     const code = getSheetCode(sheet.scriptId);
+                    const isIndep = sheet.status === "Independent Evaluation";
+                    const targetQ = sheet.resumeQuestion || sheet.lastQuestion || "Q04";
+                    const evalUrl = isIndep
+                      ? `/examiner/evaluate/${code}?round=2&question=${targetQ}`
+                      : `/examiner/evaluate/${code}`;
+
                     return (
                       <div className={`${styles.queueRow} ${index === 0 ? styles.queueRowFeatured : ""}`} key={sheet.id}>
                         <div className={styles.queueIdentity}>
                           {index === 0 && <span className={styles.overline}>Up next</span>}
-                          <strong>Sheet {code}</strong>
-                          <span>{sheet.detectedAnswers} of {sheet.totalAnswers} answers detected</span>
+                          <strong>
+                            {isIndep ? `Sheet ${code} · ${targetQ}` : `Sheet ${code}`}
+                          </strong>
+                          <span>
+                            {isIndep
+                              ? "Independent Evaluation · Second evaluation required"
+                              : sheet.status === "In Progress"
+                              ? `${sheet.evaluatedAnswers || 8} of ${sheet.totalAnswers} answers · Resume ${sheet.resumeQuestion || "Q07"}`
+                              : `${sheet.detectedAnswers} of ${sheet.totalAnswers} answers detected`}
+                          </span>
                         </div>
                         <div className={styles.queueState}>
-                          <span>{sheet.status === "AI Ready" ? "Ready to evaluate" : sheet.status}</span>
+                          <span>
+                            {isIndep
+                              ? "Independent Evaluation"
+                              : sheet.status === "AI Ready"
+                              ? "Ready to evaluate"
+                              : sheet.status}
+                          </span>
                           {sheet.riskLevel.includes("High") && <small>High risk</small>}
                         </div>
-                        <Link href={`/examiner/evaluate/${code}`} aria-label={`${index === 0 ? "Open answer book" : "Open"} for Sheet ${code}`}>
-                          {index === 0 ? "Open answer book" : "Open"} <ArrowRight size={16} aria-hidden="true" />
+                        <Link href={evalUrl} aria-label={`${isIndep ? "Evaluate" : index === 0 ? "Open answer book" : "Open"} for Sheet ${code}`}>
+                          {isIndep
+                            ? "Evaluate"
+                            : sheet.status === "In Progress"
+                            ? "Resume"
+                            : index === 0
+                            ? "Open answer book"
+                            : "Open"}{" "}
+                          <ArrowRight size={16} aria-hidden="true" />
                         </Link>
                       </div>
                     );

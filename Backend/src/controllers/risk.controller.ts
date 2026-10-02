@@ -338,4 +338,206 @@ export class RiskController {
       });
     }
   }
+
+  /**
+   * GET /question-attempts/:id/eligible-second-examiners
+   * Lists eligible examiners for Round 2 allocation.
+   */
+  public static async getEligibleSecondExaminers(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = riskAssessParamsSchema.parse(req.params);
+      const excludeExaminerId = req.query.exclude as string | undefined;
+
+      const examiners = await RiskService.findEligibleSecondExaminers({
+        questionAttemptId: id,
+        excludeExaminerUserId: excludeExaminerId,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: examiners,
+      });
+    } catch (err: any) {
+      if (err.message.includes('QUESTION_ATTEMPT_NOT_FOUND')) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'QUESTION_ATTEMPT_NOT_FOUND', message: err.message },
+        });
+        return;
+      }
+      res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+
+  /**
+   * PATCH /evaluation-rounds/:id/reassign
+   * Head Examiner override to reassign Round 2.
+   */
+  public static async reassignSecondEvaluation(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = completeRoundParamsSchema.parse(req.params);
+      const newExaminerUserId = req.body?.newExaminerUserId;
+      const callerUserId = (req as any).user?.id || 'head-examiner';
+
+      if (!newExaminerUserId) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'newExaminerUserId is required' },
+        });
+        return;
+      }
+
+      const updated = await RiskService.reassignSecondEvaluation({
+        roundId: id,
+        newExaminerUserId,
+        callerUserId,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: updated,
+      });
+    } catch (err: any) {
+      if (err.message.includes('INDEPENDENCE_VIOLATION') || err.message.includes('UNAUTHORIZED_OR_INELIGIBLE_EXAMINER')) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'INELIGIBLE_ASSIGNEE', message: err.message },
+        });
+        return;
+      }
+      if (err.message.includes('EVALUATION_ROUND_NOT_FOUND')) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'EVALUATION_ROUND_NOT_FOUND', message: err.message },
+        });
+        return;
+      }
+      res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+
+  /**
+   * POST /evaluation-rounds/:id/agree
+   * Round 2 evaluator agrees with original Round 1 evaluation.
+   */
+  public static async agreeEvaluationRound(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = completeRoundParamsSchema.parse(req.params);
+      const callerUserId = (req as any).user?.id || 'examiner';
+
+      const result = await RiskService.agreeWithFirstRound({
+        roundId: id,
+        callerUserId,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (err: any) {
+      if (err.message.includes('ROUND_NOT_COMPLETED')) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'ROUND_NOT_COMPLETED', message: err.message },
+        });
+        return;
+      }
+      if (err.message.includes('EVALUATION_ROUND_NOT_FOUND')) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'EVALUATION_ROUND_NOT_FOUND', message: err.message },
+        });
+        return;
+      }
+      res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+
+  /**
+   * POST /evaluation-rounds/:id/disagree
+   * Round 2 evaluator disagrees with original Round 1 evaluation, sending case to Moderation.
+   */
+  public static async disagreeEvaluationRound(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = completeRoundParamsSchema.parse(req.params);
+      const callerUserId = (req as any).user?.id || 'examiner';
+      const reason = req.body?.reason;
+
+      if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'DISAGREE_REASON_REQUIRED', message: 'A concise reason is required when disagreeing' },
+        });
+        return;
+      }
+
+      const result = await RiskService.disagreeWithFirstRound({
+        roundId: id,
+        reason,
+        callerUserId,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (err: any) {
+      if (err.message.includes('DISAGREE_REASON_REQUIRED')) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'DISAGREE_REASON_REQUIRED', message: err.message },
+        });
+        return;
+      }
+      if (err.message.includes('ROUND_NOT_COMPLETED')) {
+        res.status(400).json({
+          success: false,
+          error: { code: 'ROUND_NOT_COMPLETED', message: err.message },
+        });
+        return;
+      }
+      if (err.message.includes('EVALUATION_ROUND_NOT_FOUND')) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'EVALUATION_ROUND_NOT_FOUND', message: err.message },
+        });
+        return;
+      }
+      res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
+
+  /**
+   * GET /examiner/my-independent-evaluations
+   * Retrieves assigned independent second evaluations for the calling examiner.
+   */
+  public static async getMyIndependentEvaluations(req: Request, res: Response): Promise<void> {
+    try {
+      const callerUserId = (req as any).user?.id || 'examiner';
+
+      const tasks = await RiskService.getMyIndependentEvaluations(callerUserId);
+
+      res.status(200).json({
+        success: true,
+        data: tasks,
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: err.message },
+      });
+    }
+  }
 }

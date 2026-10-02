@@ -26,6 +26,8 @@ import {
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import TopNavigation from "@/components/examiner/TopNavigation";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 function AnalyticsContent() {
   const searchParams = useSearchParams();
@@ -38,10 +40,11 @@ function AnalyticsContent() {
   const evalProgressPct = Math.round((coverage.evaluatedAttempts / coverage.totalAssignedAttempts) * 100);
   const doubleEvalProgressPct = Math.round((coverage.doubleEvaluationCompleted / coverage.doubleEvaluationRequired) * 100);
   const moderationResolvedPct = Math.round((coverage.moderationCasesResolved / (coverage.moderationCasesResolved + coverage.moderationCasesOpen)) * 100);
-  const calibrationProgressPct = Math.round((coverage.calibrationCompleted / coverage.calibrationAssigned) * 100);
+  const highRiskPct = Math.round((coverage.highRiskAttempts / coverage.totalAssignedAttempts) * 100);
 
   return (
-    <div className="min-h-screen bg-[#FCFAF5] text-slate-900 flex flex-col">
+    <div className="workspace-shell min-h-screen bg-[#FCFAF5] text-slate-900 flex flex-col font-sans">
+      <TopNavigation activeTab="admin-analytics" />
       {/* Top Header */}
       <header className="bg-white border-b border-stone-200 px-6 py-4 sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -180,15 +183,15 @@ function AnalyticsContent() {
               </div>
 
               <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-xs">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Calibration Completed</div>
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">High-Risk Attempts</div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-bold font-mono text-slate-900">{calibrationProgressPct}%</span>
-                  <span className="text-xs text-slate-600 font-mono">{coverage.calibrationCompleted} / {coverage.calibrationAssigned}</span>
+                  <span className="text-2xl font-bold font-mono text-slate-900">{coverage.highRiskAttempts}</span>
+                  <span className="text-xs text-slate-600 font-mono">{highRiskPct}% of total</span>
                 </div>
                 <div className="w-full bg-stone-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                  <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${calibrationProgressPct}%` }} />
+                  <div className="bg-rose-600 h-full rounded-full" style={{ width: `${highRiskPct}%` }} />
                 </div>
-                <div className="text-[11px] text-slate-500 mt-2">Standard benchmark sets</div>
+                <div className="text-[11px] text-slate-500 mt-2">Deterministic triggers &amp; variance flags</div>
               </div>
             </div>
 
@@ -257,7 +260,7 @@ function AnalyticsContent() {
                       <th className="py-3 px-4">AI Override Rate</th>
                       <th className="py-3 px-4">2nd Eval Disagreements</th>
                       <th className="py-3 px-4">Moderation Cases</th>
-                      <th className="py-3 px-4">Calibration MAD</th>
+                      <th className="py-3 px-4">Consensus Deviation</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100 text-slate-800">
@@ -287,7 +290,7 @@ function AnalyticsContent() {
                         </td>
                         <td className="py-3 px-4 font-mono">
                           <span className="font-semibold text-emerald-800">±{ev.medianAbsoluteDeviationFromCalibration.toFixed(2)} marks</span>
-                          <span className="text-[10px] text-slate-500 block">{ev.calibrationCriteriaAgreementRate.toFixed(0)}% agreement</span>
+                          <span className="text-[10px] text-slate-500 block">{ev.calibrationCriteriaAgreementRate.toFixed(0)}% consensus rate</span>
                         </td>
                       </tr>
                     ))}
@@ -392,8 +395,10 @@ function AnalyticsContent() {
 
 export default function QualityAnalyticsPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500">Loading Quality Analytics...</div>}>
-      <AnalyticsContent />
-    </Suspense>
+    <ProtectedRoute allowedRoles={["SUPER_ADMIN", "HEAD_EXAMINER"]}>
+      <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500">Loading Quality Analytics...</div>}>
+        <AnalyticsContent />
+      </Suspense>
+    </ProtectedRoute>
   );
 }

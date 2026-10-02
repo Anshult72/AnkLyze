@@ -40,6 +40,20 @@ router.post(
 );
 
 router.get(
+  '/question-attempts/:id/eligible-second-examiners',
+  requireAuth,
+  requireRole('HEAD_EXAMINER', 'SUPER_ADMIN'),
+  RiskController.getEligibleSecondExaminers
+);
+
+router.patch(
+  '/evaluation-rounds/:id/reassign',
+  requireAuth,
+  requireRole('HEAD_EXAMINER', 'SUPER_ADMIN'),
+  RiskController.reassignSecondEvaluation
+);
+
+router.get(
   '/question-attempts/:id/evaluation-rounds',
   requireAuth,
   requireRole('EXAMINER', 'HEAD_EXAMINER', 'MODERATOR', 'SUPER_ADMIN'),
@@ -60,11 +74,32 @@ router.post(
   RiskController.completeEvaluationRound
 );
 
+router.post(
+  '/evaluation-rounds/:id/agree',
+  requireAuth,
+  requireRole('EXAMINER', 'HEAD_EXAMINER', 'SUPER_ADMIN'),
+  RiskController.agreeEvaluationRound
+);
+
+router.post(
+  '/evaluation-rounds/:id/disagree',
+  requireAuth,
+  requireRole('EXAMINER', 'HEAD_EXAMINER', 'SUPER_ADMIN'),
+  RiskController.disagreeEvaluationRound
+);
+
 router.get(
   '/question-attempts/:id/double-evaluation-result',
   requireAuth,
   requireRole('HEAD_EXAMINER', 'MODERATOR', 'SUPER_ADMIN'),
   RiskController.getDoubleEvaluationResult
+);
+
+router.get(
+  '/examiner/my-independent-evaluations',
+  requireAuth,
+  requireRole('EXAMINER', 'HEAD_EXAMINER', 'SUPER_ADMIN'),
+  RiskController.getMyIndependentEvaluations
 );
 
 export default router;

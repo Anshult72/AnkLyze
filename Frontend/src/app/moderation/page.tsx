@@ -8,6 +8,7 @@ import {
   ModerationCaseSummary,
 } from "@/data/moderationMockData";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import TopNavigation from "@/components/examiner/TopNavigation";
 import {
   ShieldAlert,
   Scale,
@@ -35,7 +36,8 @@ export default function ModerationQueuePage() {
 
   return (
     <ProtectedRoute allowedRoles={["MODERATOR", "HEAD_EXAMINER", "SUPER_ADMIN"]}>
-      <div className="min-h-screen bg-[#FCFAF5] text-slate-900 flex flex-col font-sans selection:bg-[#c5ddd4]">
+      <div className="workspace-shell min-h-screen bg-[#FCFAF5] text-slate-900 flex flex-col font-sans selection:bg-[#c5ddd4]">
+        <TopNavigation activeTab="moderation" />
         
         {/* TOP HEADER */}
         <header className="bg-slate-900 text-white border-b border-slate-800 py-6 px-4 sm:px-8">

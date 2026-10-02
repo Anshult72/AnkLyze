@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useState, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import EvaluationWorkspaceHeader from "@/components/evaluation/EvaluationWorkspaceHeader";
 import AnswerSheetViewer from "@/components/evaluation/AnswerSheetViewer";
 import EvaluationPanel, { DecisionVersionItem } from "@/components/evaluation/EvaluationPanel";
+import Round2EvaluationPanel from "@/components/evaluation/Round2EvaluationPanel";
 import WorkspaceBottomBar from "@/components/evaluation/WorkspaceBottomBar";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import {
@@ -15,15 +16,26 @@ import {
 } from "@/data/evaluationWorkspaceMockData";
 import { Eye, SlidersHorizontal, CheckCircle, ArrowLeft } from "lucide-react";
 
-export default function ExaminerEvaluationWorkspacePage() {
+function EvaluationWorkspaceContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const scriptIdParam = (params?.scriptId as string) || "A-10492";
+
+  const isRound2 = searchParams.get("round") === "2";
+  const questionParam = searchParams.get("question");
 
   // State: Current dataset for this script
   const dataset = getScriptDataset(scriptIdParam);
-  const [currentQuestionId, setCurrentQuestionId] = useState<string>("Q04");
-  const [currentPage, setCurrentPage] = useState<number>(4);
+  const initialQId = questionParam && dataset.questions[questionParam]
+    ? questionParam
+    : isRound2
+    ? "Q07"
+    : "Q04";
+
+  const [currentQuestionId, setCurrentQuestionId] = useState<string>(initialQId);
+  const initialPage = dataset.questions[initialQId]?.pageNumber || 4;
+  const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [mobileMode, setMobileMode] = useState<"sheet" | "evaluation">("sheet");
 
   // State: Evaluated scores map (Q04 default 5.0 per specification)
@@ -268,6 +280,13 @@ export default function ExaminerEvaluationWorkspacePage() {
     }, 3200);
   };
 
+  const getRound1MarksForQuestion = (scriptId: string, qId: string): number => {
+    if (scriptId.includes("10493") || qId === "Q07") return 6.0;
+    if (scriptId.includes("10501") || qId === "Q04") return 4.0;
+    if (scriptId.includes("10497") || qId === "Q09") return 5.5;
+    return 6.0;
+  };
+
   const currentAwardedMarks =
     evaluatedScores[currentQuestionId] !== undefined
       ? evaluatedScores[currentQuestionId]
@@ -291,6 +310,7 @@ export default function ExaminerEvaluationWorkspacePage() {
           totalQuestions={dataset.totalQuestions}
           isSaved={isSaved}
           onSave={handleSave}
+          isRound2={isRound2}
         />
 
         {/* MOBILE SEGMENTED MODE SWITCH */}
@@ -318,7 +338,7 @@ export default function ExaminerEvaluationWorkspacePage() {
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Evaluation ({currentQuestionId}: {currentAwardedMarks.toFixed(1)}/7)</span>
+              <span>{isRound2 ? "Independent Evaluation" : `Evaluation (${currentQuestionId}: ${currentAwardedMarks.toFixed(1)}/7)`}</span>
             </button>
           </div>
         </div>
@@ -349,21 +369,38 @@ export default function ExaminerEvaluationWorkspacePage() {
                 mobileMode === "sheet" ? "hidden lg:flex" : "flex"
               } flex-col`}
             >
-              <EvaluationPanel
-                question={currentQuestion}
-                examinerMarks={currentAwardedMarks}
-                onMarksChange={handleMarksChange}
-                isFlagged={isCurrentFlagged}
-                onToggleFlag={handleToggleFlag}
-                onAcceptSuggestion={handleAcceptSuggestion}
-                activeEvidenceKey={activeEvidenceKey}
-                onSelectEvidence={(key) => setActiveEvidenceKey(key)}
-                onSave={handleSave}
-                decisionStatus={currentDecisionStatus}
-                onFinalize={handleFinalize}
-                onReopen={handleReopen}
-                decisionHistory={currentDecisionHistory}
-              />
+              {isRound2 ? (
+                <Round2EvaluationPanel
+                  question={currentQuestion}
+                  scriptId={scriptIdParam}
+                  round1Marks={getRound1MarksForQuestion(scriptIdParam, currentQuestionId)}
+                  activeEvidenceKey={activeEvidenceKey}
+                  onSelectEvidence={(key) => setActiveEvidenceKey(key)}
+                  onComplete={(status, marks, reason) => {
+                    showToast(
+                      status === "AGREED"
+                        ? "Original Round 1 decision confirmed as authoritative."
+                        : "Case submitted to Head Examiner for moderation review."
+                    );
+                  }}
+                />
+              ) : (
+                <EvaluationPanel
+                  question={currentQuestion}
+                  examinerMarks={currentAwardedMarks}
+                  onMarksChange={handleMarksChange}
+                  isFlagged={isCurrentFlagged}
+                  onToggleFlag={handleToggleFlag}
+                  onAcceptSuggestion={handleAcceptSuggestion}
+                  activeEvidenceKey={activeEvidenceKey}
+                  onSelectEvidence={(key) => setActiveEvidenceKey(key)}
+                  onSave={handleSave}
+                  decisionStatus={currentDecisionStatus}
+                  onFinalize={handleFinalize}
+                  onReopen={handleReopen}
+                  decisionHistory={currentDecisionHistory}
+                />
+              )}
             </div>
 
           </div>
@@ -381,6 +418,7 @@ export default function ExaminerEvaluationWorkspacePage() {
           awardedMarks={currentAwardedMarks}
           maxMarks={currentQuestion.maxMarks}
           isFlagged={isCurrentFlagged}
+          isRound2={isRound2}
         />
 
         {/* TOAST NOTIFICATION */}
@@ -393,5 +431,19 @@ export default function ExaminerEvaluationWorkspacePage() {
 
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function ExaminerEvaluationWorkspacePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FCFAF5] flex items-center justify-center text-slate-500 font-mono text-xs">
+          Loading evaluation workspace...
+        </div>
+      }
+    >
+      <EvaluationWorkspaceContent />
+    </Suspense>
   );
 }

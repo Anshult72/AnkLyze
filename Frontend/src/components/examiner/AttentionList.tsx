@@ -2,49 +2,123 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ChevronRight, CheckCircle } from "lucide-react";
-import { AttentionItem } from "@/data/examinerMockData";
+import { ChevronRight, CheckCircle2, AlertTriangle, ShieldAlert, ArrowRight, Clock } from "lucide-react";
+import {
+  INITIAL_INDEPENDENT_EVALUATION_TASKS,
+  IndependentEvaluationTask,
+  IndependentEvaluationStatus,
+  getSheetCode,
+} from "@/data/examinerMockData";
 import styles from "@/app/examiner/ExaminerPages.module.css";
 
 interface AttentionListProps {
-  items: AttentionItem[];
+  initialTasks?: IndependentEvaluationTask[];
 }
 
-export default function AttentionList({ items }: AttentionListProps) {
-  const [resolvedIds, setResolvedIds] = useState<string[]>([]);
+export default function AttentionList({ initialTasks = INITIAL_INDEPENDENT_EVALUATION_TASKS }: AttentionListProps) {
+  const [tasks, setTasks] = useState<IndependentEvaluationTask[]>(initialTasks);
 
-  const handleQuickDismiss = (id: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setResolvedIds((prev) => [...prev, id]);
+  const openTasks = tasks.filter(
+    (t) => t.status === "ASSIGNED" || t.status === "IN PROGRESS" || t.status === "COMPARISON READY"
+  );
+  const highPriorityCount = openTasks.filter((t) => t.priority === "High").length;
+  const standardPriorityCount = openTasks.length - highPriorityCount;
+
+  const getStatusBadge = (status: IndependentEvaluationStatus) => {
+    switch (status) {
+      case "ASSIGNED":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+            Assigned
+          </span>
+        );
+      case "IN PROGRESS":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-teal-50 text-[#1f565e] border border-[#b9d7d0]">
+            In Progress
+          </span>
+        );
+      case "COMPARISON READY":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+            Comparison Ready
+          </span>
+        );
+      case "AGREED":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            Agreed · Resolved
+          </span>
+        );
+      case "SENT TO MODERATION":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-800 border border-purple-200">
+            Sent to Moderation
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">
+            {status}
+          </span>
+        );
+    }
   };
 
-  const activeItems = items
-    .filter((item) => !resolvedIds.includes(item.id))
-    .sort((a, b) => Number(b.severity === "High") - Number(a.severity === "High"));
-  const highPriorityCount = activeItems.filter((item) => item.severity === "High").length;
+  const getActionLink = (task: IndependentEvaluationTask) => {
+    const cleanId = getSheetCode(task.scriptId);
+    const href = `/examiner/evaluate/${cleanId}?round=2&question=${task.questionNumber}`;
 
-  const getSeverityIndicator = (severity: "High" | "Medium" | "Low") => {
-    switch (severity) {
-      case "High":
-        return {
-          bar: "bg-rose-500",
-          text: "text-rose-700",
-          badge: "bg-rose-50 text-rose-700 border-rose-200",
-        };
-      case "Medium":
-        return {
-          bar: "bg-amber-500",
-          text: "text-amber-700",
-          badge: "bg-amber-50 text-amber-700 border-amber-200",
-        };
-      case "Low":
+    switch (task.status) {
+      case "ASSIGNED":
+        return (
+          <Link
+            href={href}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#062834] text-white hover:bg-[#1a4452] transition-colors shadow-2xs"
+            aria-label={`Open & Evaluate ${task.questionNumber} for ${task.scriptId}`}
+          >
+            <span>Open &amp; Evaluate</span>
+            <ChevronRight className="w-3.5 h-3.5 text-teal-300" />
+          </Link>
+        );
+      case "IN PROGRESS":
+        return (
+          <Link
+            href={href}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-[#326c74] text-[#062834] hover:bg-teal-50 transition-colors shadow-2xs"
+            aria-label={`Resume Evaluation of ${task.questionNumber} for ${task.scriptId}`}
+          >
+            <span>Resume Evaluation</span>
+            <ChevronRight className="w-3.5 h-3.5 text-[#326c74]" />
+          </Link>
+        );
+      case "COMPARISON READY":
+        return (
+          <Link
+            href={href}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-2xs"
+            aria-label={`Review Comparison for ${task.questionNumber} on ${task.scriptId}`}
+          >
+            <span>Review Comparison</span>
+            <ChevronRight className="w-3.5 h-3.5 text-white" />
+          </Link>
+        );
+      case "AGREED":
+        return (
+          <span className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Case Confirmed</span>
+          </span>
+        );
+      case "SENT TO MODERATION":
+        return (
+          <span className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200">
+            <ShieldAlert className="w-3.5 h-3.5 text-purple-600" />
+            <span>In Moderation</span>
+          </span>
+        );
       default:
-        return {
-          bar: "bg-emerald-500",
-          text: "text-emerald-700",
-          badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        };
+        return null;
     }
   };
 
@@ -52,98 +126,119 @@ export default function AttentionList({ items }: AttentionListProps) {
     <div className={`${styles.dataPanel} bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden`}>
       
       {/* Header */}
-      <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-4">
         <div>
-          <div className="flex items-center space-x-2">
-            <h2 id="attention-items-heading" className="font-serif text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-              Items to review
+          <div className="flex items-center space-x-2.5">
+            <h2 id="review-queue-heading" className="font-serif text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              Independent evaluations
             </h2>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold">
-              {activeItems.length} open
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold">
+              {openTasks.length} open
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Check the answer and decide whether the suggested mark is right.
+            Evaluate the assigned questions independently. Prior marks and examiner identities remain blind until submission.
           </p>
+        </div>
+
+        <div className="flex items-center space-x-2 text-xs font-medium text-slate-600">
+          <span className="inline-flex items-center px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
+            {highPriorityCount} high priority
+          </span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+            {standardPriorityCount} standard
+          </span>
         </div>
       </div>
 
       <div className={styles.reviewOverview} aria-label="Review priority summary">
-        <div><strong>{highPriorityCount}</strong><span>High priority · inspect first</span></div>
-        <div><strong>{activeItems.length - highPriorityCount}</strong><span>Other flagged answers</span></div>
+        <div>
+          <strong>{highPriorityCount}</strong>
+          <span>High priority · inspect first</span>
+        </div>
+        <div>
+          <strong>{standardPriorityCount}</strong>
+          <span>Standard priority assignments</span>
+        </div>
       </div>
 
-      {/* Item List */}
+      {/* Task List */}
       <div className={styles.reviewGrid}>
-        {activeItems.length === 0 ? (
+        {tasks.length === 0 ? (
           <div className="p-8 text-center text-xs text-slate-500 space-y-2">
             <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-              <CheckCircle className="w-5 h-5" />
+              <CheckCircle2 className="w-5 h-5" />
             </div>
-            <p className="font-semibold text-slate-900 text-sm">All attention items resolved</p>
-            <p className="text-slate-400">There are no open items in this view.</p>
+            <p className="font-semibold text-slate-900 text-sm">No independent evaluations waiting</p>
+            <p className="text-slate-400">All assigned second evaluations are completed.</p>
           </div>
         ) : (
-          activeItems.map((item) => {
-            const sev = getSeverityIndicator(item.severity);
+          tasks.map((task) => {
+            const isHigh = task.priority === "High";
 
             return (
               <article
-                key={item.id}
+                key={task.id}
                 className={styles.reviewItem}
+                aria-label={`Independent evaluation task for ${task.scriptId} ${task.questionNumber}`}
               >
                 {/* Left Severity Indicator Strip */}
                 <div
-                  className={`absolute left-0 top-0 bottom-0 w-1 ${sev.bar}`}
+                  className={`absolute left-0 top-0 bottom-0 w-1 ${
+                    isHigh ? "bg-rose-500" : "bg-[#326c74]"
+                  }`}
                   aria-hidden="true"
                 />
 
                 <div className={`${styles.reviewItemBody} space-y-1.5`}>
+                  {/* Identifiers & Badges */}
                   <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                    <span className="text-xs font-mono font-bold bg-slate-900 text-white px-2 py-0.5 rounded-md">
-                      {item.scriptId}
+                    <span className="text-xs font-mono font-bold bg-[#062834] text-white px-2 py-0.5 rounded-md">
+                      {task.scriptId}
                     </span>
-                    <span className="text-xs font-mono font-semibold text-slate-700">
-                      {item.questionNumber}
+                    <span className="text-xs font-mono font-semibold text-slate-800">
+                      {task.questionNumber}
                     </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-purple-50 text-purple-700 border-purple-200">
+                      Independent Evaluation
+                    </span>
+                    {getStatusBadge(task.status)}
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sev.badge}`}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        isHigh
+                          ? "bg-rose-50 text-rose-700 border-rose-200"
+                          : "bg-slate-50 text-slate-600 border-slate-200"
+                      }`}
                     >
-                      {item.severity} priority
+                      {task.priority} priority
                     </span>
                   </div>
 
-                  <div className="text-sm font-semibold text-slate-900">
-                    {item.issueTitle || item.reason}
+                  {/* Title / Status Reason */}
+                  <div className="text-sm font-semibold text-slate-900 pt-0.5">
+                    Second evaluation required
                   </div>
 
+                  {/* Context note (Never leaks Round 1 values) */}
                   <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
-                    {item.issueDetail || item.recommendedAction}
+                    {task.reason}
                   </p>
 
-                  <div className="text-xs font-mono font-medium text-blue-600 pt-0.5">
-                    {item.supportingInfo || item.delta}
+                  {/* Metadata Row */}
+                  <div className="flex items-center space-x-4 text-xs text-slate-500 pt-1">
+                    <span className="font-semibold text-slate-700">
+                      {task.maxMarks} maximum marks
+                    </span>
+                    <span className="inline-flex items-center space-x-1 text-slate-400">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Assigned {task.assignedAt}</span>
+                    </span>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
+                {/* Action Buttons: ZERO HIDE BUTTON */}
                 <div className={styles.reviewActions}>
-                  <button
-                    type="button"
-                    onClick={(e) => handleQuickDismiss(item.id, e)}
-                    className="text-xs text-slate-500 hover:text-slate-900 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors font-medium"
-                    title="Hide this item for this visit"
-                  >
-                    Hide
-                  </button>
-
-                  <Link
-                    href={`/examiner/evaluate/${item.scriptId.replace(/^(?:SCRIPT|SHEET)\s+/, "")}`}
-                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 hover:border-blue-600 hover:bg-blue-50/60 text-slate-800 transition-colors shadow-2xs"
-                  >
-                    <span>Inspect</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-blue-600" />
-                  </Link>
+                  {getActionLink(task)}
                 </div>
 
               </article>
@@ -154,8 +249,8 @@ export default function AttentionList({ items }: AttentionListProps) {
 
       {/* Footer Meta */}
       <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
-        <span>Batch: <strong className="font-mono text-slate-800">CS-301</strong></span>
-        <span>{activeItems.length} open items</span>
+        <span>Assignment Scope: <strong className="font-mono text-slate-800">Single QuestionAttempt (Blind)</strong></span>
+        <span>{openTasks.length} active second evaluations</span>
       </div>
 
     </div>

@@ -21,6 +21,8 @@ import {
   DoubleEvaluationState,
   IndependenceMode,
   QuestionAttemptState,
+  ModerationPriority,
+  ModerationStatus,
 } from '@prisma/client';
 
 export class RiskService {
@@ -678,5 +680,526 @@ export class RiskService {
       doubleEvaluationResult: doubleResult,
       isRedacted: false,
     };
+  }
+
+  /**
+   * Evaluates the mandatory second-evaluation trigger.
+   * Rule: difference = ABS(AI suggested marks - Round 1 examiner final marks)
+   * Triggers ONLY when difference >= 3.0 marks.
+   */
+  public static checkSecondEvaluationTrigger(params: {
+    aiSuggestedMarks: number;
+    round1Marks: number;
+  }): {
+    difference: number;
+    requiresSecondEvaluation: boolean;
+  } {
+    const difference = Math.abs(params.aiSuggestedMarks - params.round1Marks);
+    const roundedDiff = Math.round(difference * 100) / 100;
+    const requiresSecondEvaluation = roundedDiff >= 3.0;
+    return {
+      difference: roundedDiff,
+      requiresSecondEvaluation,
+    };
+  }
+
+  /**
+   * Finds active examiners eligible for independent second evaluation.
+   * Steps:
+   * 1. Find active examiners eligible for the same exam + subject.
+   * 2. Exclude Round 1 examiner.
+   * 3. Exclude anyone with conflicting assignment on the same QuestionAttempt.
+   * 4. Verify examiner has permission for this exam/subject.
+   * 5. Apply assignment / resource boundaries.
+   * 6. Consider current second-evaluation workload.
+   * 7. Select eligible examiner with lowest current second-evaluation workload.
+   * 8. Deterministic tie-break rule: id ASC.
+   * Never rank examiners or use quality/calibration scores.
+   */
+  public static async findEligibleSecondExaminers(params: {
+    questionAttemptId: string;
+    excludeExaminerUserId?: string;
+  }) {
+    const attempt = await prisma.questionAttempt.findUnique({
+      where: { id: params.questionAttemptId },
+      include: {
+        question: true,
+        script: true,
+        evaluationRounds: true,
+      },
+    });
+
+    if (!attempt) {
+      throw new Error(`QUESTION_ATTEMPT_NOT_FOUND: Question attempt ${params.questionAttemptId} not found`);
+    }
+
+    const subjectId = attempt.script?.subjectId || attempt.question?.subjectId;
+    const examId = attempt.script?.examId;
+
+    // Conflicting examiners on this question attempt
+    const conflictingExaminerIds = new Set<string>();
+    if (params.excludeExaminerUserId) {
+      conflictingExaminerIds.add(params.excludeExaminerUserId);
+    }
+    for (const r of attempt.evaluationRounds) {
+      if (r.evaluatorUserId) {
+        conflictingExaminerIds.add(r.evaluatorUserId);
+      }
+    }
+
+    // Query active examiners assigned to this subject/exam
+    const assignments = await prisma.examinerAssignment.findMany({
+      where: {
+        status: 'ACTIVE',
+        OR: [
+          ...(subjectId ? [{ subjectId }] : []),
+          ...(examId ? [{ examId }] : []),
+        ],
+      },
+      include: {
+        examiner: {
+          include: {
+            role: true,
+            assignedEvaluationRounds: {
+              where: {
+                roundNumber: 2,
+                status: { in: [RoundStatus.PENDING, RoundStatus.IN_PROGRESS] },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const candidateMap = new Map<string, {
+      id: string;
+      fullName: string;
+      email: string;
+      department: string | null;
+      activeWorkload: number;
+    }>();
+
+    for (const assign of assignments) {
+      const user = assign.examiner;
+      if (!user || user.status !== 'ACTIVE') continue;
+      if (conflictingExaminerIds.has(user.id)) continue;
+
+      if (!candidateMap.has(user.id)) {
+        candidateMap.set(user.id, {
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          department: user.department,
+          activeWorkload: user.assignedEvaluationRounds.length,
+        });
+      }
+    }
+
+    // Sort by lowest active workload, then deterministic tie-break (id ASC)
+    const eligibleList = Array.from(candidateMap.values()).sort((a, b) => {
+      if (a.activeWorkload !== b.activeWorkload) {
+        return a.activeWorkload - b.activeWorkload;
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    return eligibleList;
+  }
+
+  /**
+   * Automatically allocates an eligible examiner with lowest workload to Round 2.
+   */
+  public static async autoAssignSecondEvaluation(params: {
+    questionAttemptId: string;
+    round1ExaminerId?: string;
+    round1EvaluationId?: string;
+    callerUserId?: string;
+    assignmentReason?: string;
+  }) {
+    const attempt = await prisma.questionAttempt.findUnique({
+      where: { id: params.questionAttemptId },
+      include: {
+        evaluationRounds: true,
+        evaluations: { orderBy: { version: 'desc' }, take: 1 },
+      },
+    });
+
+    if (!attempt) {
+      throw new Error(`QUESTION_ATTEMPT_NOT_FOUND: Question attempt ${params.questionAttemptId} not found`);
+    }
+
+    // Check if Round 2 already exists
+    const existingRound2 = attempt.evaluationRounds.find((r) => r.roundNumber === 2);
+    if (existingRound2) {
+      return existingRound2;
+    }
+
+    // Ensure Round 1 is tracked and marked completed
+    let round1 = attempt.evaluationRounds.find((r) => r.roundNumber === 1);
+    const latestEval = attempt.evaluations[0];
+    if (!round1) {
+      round1 = await RiskRepository.createEvaluationRound({
+        questionAttemptId: params.questionAttemptId,
+        roundNumber: 1,
+        evaluationId: params.round1EvaluationId || latestEval?.id,
+        evaluatorUserId: params.round1ExaminerId || latestEval?.examinerUserId || undefined,
+        status: RoundStatus.COMPLETED,
+        independenceMode: IndependenceMode.DOUBLE_BLIND,
+      });
+    }
+
+    // Find eligible second examiners
+    const eligibleExaminers = await this.findEligibleSecondExaminers({
+      questionAttemptId: params.questionAttemptId,
+      excludeExaminerUserId: params.round1ExaminerId || round1.evaluatorUserId || undefined,
+    });
+
+    let selectedExaminerId: string | undefined = eligibleExaminers[0]?.id;
+
+    // Fallback: If in standalone testing / mock environment without assigned examiners in DB,
+    // query any active EXAMINER who is not round 1 examiner
+    if (!selectedExaminerId) {
+      const fallbackExaminer = await prisma.user.findFirst({
+        where: {
+          status: 'ACTIVE',
+          role: { name: 'EXAMINER' },
+          id: { not: params.round1ExaminerId || round1.evaluatorUserId || 'none' },
+        },
+        orderBy: { id: 'asc' },
+      });
+      selectedExaminerId = fallbackExaminer?.id;
+    }
+
+    // Create Round 2 record
+    const round2 = await RiskRepository.createEvaluationRound({
+      questionAttemptId: params.questionAttemptId,
+      roundNumber: 2,
+      evaluatorUserId: selectedExaminerId,
+      status: selectedExaminerId ? RoundStatus.IN_PROGRESS : RoundStatus.PENDING,
+      independenceMode: IndependenceMode.DOUBLE_BLIND,
+    });
+
+    // Initialize DoubleEvaluationResult
+    const r1Marks = latestEval?.examinerMarks ?? latestEval?.suggestedMarks ?? 0;
+    await RiskRepository.saveDoubleEvaluationResult({
+      questionAttemptId: params.questionAttemptId,
+      round1EvaluationId: round1.evaluationId || undefined,
+      round1Marks: r1Marks,
+      round2Marks: 0,
+      markDelta: 0,
+      normalizedDelta: 0,
+      status: DoubleEvaluationState.PENDING_SECOND_EVALUATION,
+      requiresSeniorReview: false,
+      criteriaDifferencesCount: 0,
+    });
+
+    // Audit events
+    await AuditService.recordEvent({
+      event: 'SECOND_EVALUATION_TRIGGERED',
+      userId: params.callerUserId || params.round1ExaminerId,
+      details: {
+        questionAttemptId: params.questionAttemptId,
+        evaluationRoundId: round2.id,
+        assignmentReason: params.assignmentReason || 'Significant AI-Examiner divergence (>= 3.0 marks)',
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    if (selectedExaminerId) {
+      await AuditService.recordEvent({
+        event: 'SECOND_EVALUATION_AUTO_ASSIGNED',
+        userId: params.callerUserId || 'SYSTEM_AUTO_ALLOCATOR',
+        details: {
+          questionAttemptId: params.questionAttemptId,
+          evaluationRoundId: round2.id,
+          assignedTo: selectedExaminerId,
+          assignedFrom: 'SYSTEM_AUTO_ALLOCATOR',
+          assignmentReason: 'Workload-balanced automatic selection',
+          createdAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    return round2;
+  }
+
+  /**
+   * Head Examiner override to reassign Round 2 to another eligible examiner.
+   */
+  public static async reassignSecondEvaluation(params: {
+    roundId: string;
+    newExaminerUserId: string;
+    callerUserId: string;
+  }) {
+    const round = await RiskRepository.getEvaluationRoundById(params.roundId);
+    if (!round) {
+      throw new Error(`EVALUATION_ROUND_NOT_FOUND: Round ${params.roundId} not found`);
+    }
+
+    if (round.roundNumber !== 2) {
+      throw new Error(`INVALID_ROUND_FOR_REASSIGNMENT: Only Round 2 independent evaluations can be reassigned`);
+    }
+
+    if (round.status === RoundStatus.COMPLETED) {
+      throw new Error(`CANNOT_REASSIGN_COMPLETED_ROUND: Round ${params.roundId} is already completed`);
+    }
+
+    // Verify new examiner is in eligible examiner pool
+    const allRounds = await RiskRepository.getEvaluationRounds(round.questionAttemptId);
+    const round1 = allRounds.find((r) => r.roundNumber === 1);
+
+    if (round1 && round1.evaluatorUserId === params.newExaminerUserId) {
+      throw new Error(`INDEPENDENCE_VIOLATION: Round 1 examiner cannot be assigned as Round 2 evaluator`);
+    }
+
+    const eligibleList = await this.findEligibleSecondExaminers({
+      questionAttemptId: round.questionAttemptId,
+      excludeExaminerUserId: round1?.evaluatorUserId || undefined,
+    });
+
+    const isEligible = eligibleList.some((e) => e.id === params.newExaminerUserId);
+    if (!isEligible) {
+      // Also check if user exists, is active EXAMINER and not Round 1
+      const user = await prisma.user.findUnique({
+        where: { id: params.newExaminerUserId },
+        include: { role: true },
+      });
+      if (!user || user.status !== 'ACTIVE' || (user.role.name !== 'EXAMINER' && user.role.name !== 'HEAD_EXAMINER')) {
+        throw new Error(`UNAUTHORIZED_OR_INELIGIBLE_EXAMINER: User ${params.newExaminerUserId} is not an eligible active examiner`);
+      }
+    }
+
+    const previousExaminerId = round.evaluatorUserId;
+
+    // Update assignment
+    const updatedRound = await prisma.evaluationRound.update({
+      where: { id: params.roundId },
+      data: {
+        evaluatorUserId: params.newExaminerUserId,
+        status: RoundStatus.IN_PROGRESS,
+      },
+    });
+
+    await AuditService.recordEvent({
+      event: 'SECOND_EVALUATION_REASSIGNED',
+      userId: params.callerUserId,
+      details: {
+        questionAttemptId: round.questionAttemptId,
+        evaluationRoundId: round.id,
+        assignedFrom: previousExaminerId,
+        assignedTo: params.newExaminerUserId,
+        assignmentReason: 'Manual Head Examiner override',
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    return updatedRound;
+  }
+
+  /**
+   * Round 2 Agree workflow:
+   * Confirms Round 1 decision as authoritative. Round 2 result preserved as independent evidence.
+   * No averaging, no mark replacement.
+   */
+  public static async agreeWithFirstRound(params: {
+    roundId: string;
+    callerUserId: string;
+  }) {
+    const round = await RiskRepository.getEvaluationRoundById(params.roundId);
+    if (!round) {
+      throw new Error(`EVALUATION_ROUND_NOT_FOUND: Round ${params.roundId} not found`);
+    }
+
+    if (round.status !== RoundStatus.COMPLETED) {
+      throw new Error(`ROUND_NOT_COMPLETED: Round ${params.roundId} must be completed before agree/disagree decision`);
+    }
+
+    // Update DoubleEvaluationResult status
+    const existingResult = await RiskRepository.getDoubleEvaluationResult(round.questionAttemptId);
+    const doubleResult = await RiskRepository.saveDoubleEvaluationResult({
+      questionAttemptId: round.questionAttemptId,
+      round1Marks: existingResult?.round1Marks ?? 0,
+      round2Marks: existingResult?.round2Marks ?? 0,
+      markDelta: existingResult?.markDelta ?? 0,
+      normalizedDelta: existingResult?.normalizedDelta ?? 0,
+      status: DoubleEvaluationState.DOUBLE_EVALUATION_AGREED,
+      requiresSeniorReview: false,
+      criteriaDifferencesCount: existingResult?.criteriaDifferencesCount ?? 0,
+    });
+
+    await AuditService.recordEvent({
+      event: 'SECOND_EVALUATION_AGREED',
+      userId: params.callerUserId,
+      details: {
+        questionAttemptId: round.questionAttemptId,
+        roundId: params.roundId,
+        authoritativeOutcome: 'Round 1 decision preserved as authoritative',
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    return {
+      status: 'AGREED',
+      confirmed: true,
+      authoritativeSource: 'ROUND_1',
+      doubleEvaluationResult: doubleResult,
+    };
+  }
+
+  /**
+   * Round 2 Disagree workflow:
+   * Requires concise reason. Escalates to Head Examiner ModerationCase.
+   * Preserves both rounds without picking an automatic winner or averaging.
+   */
+  public static async disagreeWithFirstRound(params: {
+    roundId: string;
+    reason: string;
+    callerUserId: string;
+  }) {
+    if (!params.reason || params.reason.trim().length === 0) {
+      throw new Error(`DISAGREE_REASON_REQUIRED: A concise reason is required when disagreeing with original evaluation`);
+    }
+
+    const round = await RiskRepository.getEvaluationRoundById(params.roundId);
+    if (!round) {
+      throw new Error(`EVALUATION_ROUND_NOT_FOUND: Round ${params.roundId} not found`);
+    }
+
+    if (round.status !== RoundStatus.COMPLETED) {
+      throw new Error(`ROUND_NOT_COMPLETED: Round ${params.roundId} must be completed before agree/disagree decision`);
+    }
+
+    // Update DoubleEvaluationResult status
+    const existingResult = await RiskRepository.getDoubleEvaluationResult(round.questionAttemptId);
+    const doubleResult = await RiskRepository.saveDoubleEvaluationResult({
+      questionAttemptId: round.questionAttemptId,
+      round1Marks: existingResult?.round1Marks ?? 0,
+      round2Marks: existingResult?.round2Marks ?? 0,
+      markDelta: existingResult?.markDelta ?? 0,
+      normalizedDelta: existingResult?.normalizedDelta ?? 0,
+      status: DoubleEvaluationState.DOUBLE_EVALUATION_DISAGREEMENT,
+      requiresSeniorReview: true,
+      seniorReviewNotes: params.reason.trim(),
+      criteriaDifferencesCount: existingResult?.criteriaDifferencesCount ?? 2,
+    });
+
+    // Create or find existing ModerationCase
+    const caseNumber = `MOD-${Date.now().toString().slice(-6)}`;
+    const moderationCase = await prisma.moderationCase.create({
+      data: {
+        caseNumber,
+        questionAttemptId: round.questionAttemptId,
+        doubleEvaluationResultId: doubleResult.id,
+        priority: ModerationPriority.HIGH,
+        triggerReason: 'DOUBLE_EVALUATION_DISAGREEMENT',
+        status: ModerationStatus.OPEN,
+        createdById: params.callerUserId,
+        metadataJson: JSON.stringify({
+          disagreementReason: params.reason.trim(),
+          round2EvaluatorId: params.callerUserId,
+          roundId: params.roundId,
+          timestamp: new Date().toISOString(),
+        }),
+      },
+    });
+
+    await AuditService.recordEvent({
+      event: 'SECOND_EVALUATION_DISAGREED',
+      userId: params.callerUserId,
+      details: {
+        questionAttemptId: round.questionAttemptId,
+        roundId: params.roundId,
+        moderationCaseId: moderationCase.id,
+        reason: params.reason.trim(),
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    return {
+      status: 'SENT_TO_MODERATION',
+      moderationCase,
+      doubleEvaluationResult: doubleResult,
+    };
+  }
+
+  /**
+   * Retrieves all independent second-evaluation tasks assigned to an examiner.
+   * If a task is incomplete, applies server-side blind redaction.
+   */
+  public static async getMyIndependentEvaluations(examinerUserId: string) {
+    const rounds = await prisma.evaluationRound.findMany({
+      where: {
+        roundNumber: 2,
+        evaluatorUserId: examinerUserId,
+      },
+      include: {
+        questionAttempt: {
+          include: {
+            question: true,
+            script: true,
+            evaluations: {
+              orderBy: { version: 'desc' },
+              take: 1,
+              include: {
+                criterionResults: true,
+              },
+            },
+          },
+        },
+        evaluation: {
+          include: {
+            criterionResults: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const doubleResults = await prisma.doubleEvaluationResult.findMany({
+      where: {
+        questionAttemptId: { in: rounds.map((r) => r.questionAttemptId) },
+      },
+    });
+
+    const resultMap = new Map(doubleResults.map((dr) => [dr.questionAttemptId, dr]));
+
+    return rounds.map((r) => {
+      const isCompleted = r.status === RoundStatus.COMPLETED;
+      const dResult = resultMap.get(r.questionAttemptId);
+      const firstEval = r.questionAttempt.evaluations[0];
+
+      if (!isCompleted) {
+        // Blind redaction: server-side omit Round 1 marks, notes, identity, delta
+        return {
+          id: r.id,
+          questionAttemptId: r.questionAttemptId,
+          scriptId: r.questionAttempt.script?.scriptCode || r.questionAttempt.scriptId,
+          questionNumber: r.questionAttempt.question?.questionNumber || 'Q01',
+          maxMarks: r.questionAttempt.question?.maximumMarks || 10,
+          status: r.status,
+          doubleEvaluationState: dResult?.status || 'PENDING_SECOND_EVALUATION',
+          assignedAt: r.createdAt,
+          reason: 'Significant evaluation variance detected',
+          isBlind: true,
+        };
+      }
+
+      return {
+        id: r.id,
+        questionAttemptId: r.questionAttemptId,
+        scriptId: r.questionAttempt.script?.scriptCode || r.questionAttempt.scriptId,
+        questionNumber: r.questionAttempt.question?.questionNumber || 'Q01',
+        maxMarks: r.questionAttempt.question?.maximumMarks || 10,
+        status: r.status,
+        doubleEvaluationState: dResult?.status || 'SECOND_EVALUATION_COMPLETED',
+        assignedAt: r.createdAt,
+        isBlind: false,
+        comparison: {
+          round1Marks: dResult?.round1Marks ?? firstEval?.examinerMarks ?? 0,
+          round2Marks: dResult?.round2Marks ?? r.evaluation?.examinerMarks ?? 0,
+          difference: dResult?.markDelta ?? 0,
+        },
+      };
+    });
   }
 }

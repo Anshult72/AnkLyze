@@ -291,7 +291,7 @@ export class RiskRepository {
 
     const cloned = JSON.parse(JSON.stringify(evaluationPayload));
 
-    // Redact human decisions
+    // Redact human decisions, notes, identities, reasons
     delete cloned.examinerDecision;
     delete cloned.examinerMarks;
     delete cloned.examinerNotes;
@@ -299,13 +299,26 @@ export class RiskRepository {
     delete cloned.examinerUser;
     delete cloned.decidedAt;
     delete cloned.decisionHistory;
+    delete cloned.overrideReason;
+    delete cloned.reopenReason;
+    delete cloned.markDelta;
+    delete cloned.normalizedDelta;
+    delete cloned.aiHumanDelta;
+    delete cloned.disagreementAmount;
 
     // Redact human criteria marks in criterionResults
     if (Array.isArray(cloned.criterionResults)) {
       cloned.criterionResults = cloned.criterionResults.map((cr: any) => {
-        const { examinerMarks, examinerOverridden, ...rest } = cr;
+        const { examinerMarks, examinerOverridden, overrideReason, ...rest } = cr;
         return rest;
       });
+    }
+
+    // Redact disagreement risk factors from attached risk assessments
+    if (cloned.riskAssessment && Array.isArray(cloned.riskAssessment.factors)) {
+      cloned.riskAssessment.factors = cloned.riskAssessment.factors.filter(
+        (f: any) => f.factorType !== 'AI_HUMAN_DISAGREEMENT' && f.factorType !== 'CRITERION_DISAGREEMENT'
+      );
     }
 
     // Set flag indicating blind evaluation mode

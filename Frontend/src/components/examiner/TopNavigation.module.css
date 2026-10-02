@@ -3,8 +3,10 @@
 .brand{display:flex;align-items:center;width:210px;height:70px;overflow:hidden}
 .brand img,.mobileBrand img{width:100%;height:auto;object-fit:contain}
 .closeButton{display:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #d6e5df;border-radius:9px;background:#fffefa;color:#062834;cursor:pointer}
-.navigation{display:flex;flex:1;flex-direction:column;gap:18px;margin-top:28px}
+.navigation{display:flex;flex:1;flex-direction:column;gap:14px;margin-top:24px}
 .navGroup{display:flex;flex-direction:column;gap:4px}
+.groupHeading{display:block;padding:8px 14px 4px;color:#789194;font:700 10px/1.2 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.navGroup + .navGroup{margin-top:6px;padding-top:10px;border-top:1px solid #edf4f0}
 .navLink{position:relative;display:flex;align-items:center;gap:12px;min-height:50px;padding:0 13px;border:1px solid transparent;border-radius:10px;color:#486167;text-decoration:none;font:600 15px Arial,sans-serif;transition:background-color .18s,color .18s,transform .18s}
 .navLink svg{flex:none;color:#6f9697}
 .navLink:hover{background:#edf5f1;color:#062834;transform:translateX(2px)}
@@ -45,9 +47,10 @@
   .sidebar:is(:hover,:has(:focus-visible)) .compactLogo{display:none}
   .sidebar:is(:hover,:has(:focus-visible)) .fullLogo{opacity:1;visibility:visible}
   .navLink{padding:0 17px;gap:14px;overflow:hidden}
-  .navLabel,.accountText,.accountButton>svg{opacity:0;visibility:hidden;transition:opacity .16s ease;flex-shrink:0}
+  .navLabel,.accountText,.accountButton>svg,.groupHeading{opacity:0;visibility:hidden;transition:opacity .16s ease;flex-shrink:0}
+  .sidebar:not(:hover):not(:has(:focus-visible)) .groupHeading{height:0;padding:0;margin:0;overflow:hidden}
   .activeMark{display:none}
-  .sidebar:is(:hover,:has(:focus-visible)) :is(.navLabel,.accountText,.accountButton>svg){opacity:1;visibility:visible}
+  .sidebar:is(:hover,:has(:focus-visible)) :is(.navLabel,.accountText,.accountButton>svg,.groupHeading){opacity:1;visibility:visible;height:auto}
   .sidebar:is(:hover,:has(:focus-visible)) .activeMark{display:block}
   .accountButton{padding:7px 13px;gap:12px;overflow:hidden}
   .accountText{width:174px;flex-shrink:1}

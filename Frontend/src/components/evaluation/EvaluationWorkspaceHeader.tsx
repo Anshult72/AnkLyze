@@ -14,6 +14,7 @@ interface EvaluationWorkspaceHeaderProps {
   totalQuestions: number;
   isSaved: boolean;
   onSave?: () => void;
+  isRound2?: boolean;
 }
 
 export default function EvaluationWorkspaceHeader({
@@ -24,6 +25,7 @@ export default function EvaluationWorkspaceHeader({
   currentQuestionId,
   totalQuestions,
   isSaved,
+  isRound2 = false,
 }: EvaluationWorkspaceHeaderProps) {
   const currentNum = parseInt(currentQuestionId.replace("Q", ""), 10) || 4;
 
@@ -35,12 +37,12 @@ export default function EvaluationWorkspaceHeader({
           {/* LEFT: Navigation Back + Anonymized Script ID */}
           <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
             <Link
-              href="/examiner/dashboard"
+              href={isRound2 ? "/examiner/review" : "/examiner/dashboard"}
               className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-blue-50/70 border border-slate-200 transition-colors"
-              title="Return to Examiner Dashboard queue"
+              title={isRound2 ? "Return to Review Queue" : "Return to Examiner Dashboard queue"}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Queue</span>
+              <span>{isRound2 ? "Back to Review Queue" : "Back to Queue"}</span>
             </Link>
 
             <div className="h-4 w-px bg-slate-200" />
@@ -55,10 +57,17 @@ export default function EvaluationWorkspaceHeader({
                   {scriptId.replace(/^(?:SCRIPT|SHEET)\s+/i, "")}
                 </span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-bold uppercase tracking-wider hidden md:inline-flex items-center space-x-1">
-                <ShieldCheck className="w-3 h-3 text-blue-600 mr-0.5" />
-                <span>Anonymized Evaluation</span>
-              </span>
+              {isRound2 ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-bold uppercase tracking-wider inline-flex items-center space-x-1">
+                  <ShieldCheck className="w-3 h-3 text-purple-600 mr-0.5" />
+                  <span>Independent Evaluation (Round 2)</span>
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-bold uppercase tracking-wider hidden md:inline-flex items-center space-x-1">
+                  <ShieldCheck className="w-3 h-3 text-blue-600 mr-0.5" />
+                  <span>Anonymized Evaluation</span>
+                </span>
+              )}
             </div>
           </div>
 

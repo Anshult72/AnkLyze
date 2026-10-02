@@ -37,6 +37,7 @@ import {
   CreateHumanDecisionInput,
 } from '../repositories/evaluation.repository';
 import { AuditService } from './audit.service';
+import { RiskService } from './risk.service';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
 
@@ -1209,6 +1210,44 @@ export class EvaluationService {
         totalMarks: finalized?.totalMarks,
       },
     });
+
+    // Mandatory Second-Evaluation Trigger:
+    // Calculate difference = ABS(AI suggested marks - Round 1 examiner final marks)
+    // Second evaluation MUST be triggered ONLY when difference >= 3.0 marks.
+    try {
+      const evaluation = await prisma.evaluation.findUnique({
+        where: { id: evaluationId },
+        include: { questionAttempt: true },
+      });
+
+      if (
+        evaluation &&
+        evaluation.suggestedMarks !== null &&
+        evaluation.suggestedMarks !== undefined &&
+        finalized &&
+        evaluation.questionAttemptId
+      ) {
+        const trigger = RiskService.checkSecondEvaluationTrigger({
+          aiSuggestedMarks: evaluation.suggestedMarks,
+          round1Marks: finalized.totalMarks,
+        });
+
+        if (trigger.requiresSecondEvaluation) {
+          await RiskService.autoAssignSecondEvaluation({
+            questionAttemptId: evaluation.questionAttemptId,
+            round1ExaminerId: examinerUserId,
+            round1EvaluationId: evaluationId,
+            callerUserId: examinerUserId,
+            assignmentReason: `Mandatory second evaluation triggered: AI suggested marks (${evaluation.suggestedMarks}) vs final marks (${finalized.totalMarks}) difference (${trigger.difference}) >= 3.0 marks`,
+          });
+        }
+      }
+    } catch (err: any) {
+      logger.warn(
+        { err, evaluationId },
+        'Second evaluation trigger evaluation handled during decision finalization'
+      );
+    }
 
     return finalized;
   }

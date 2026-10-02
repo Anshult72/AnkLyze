@@ -22,6 +22,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { MOCK_RESULTS_LIST, ResultDetailData } from "@/data/resultMockData";
+import TopNavigation from "@/components/examiner/TopNavigation";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 export default function AdminResultsPage() {
   const [results, setResults] = useState<ResultDetailData[]>(MOCK_RESULTS_LIST);
@@ -75,8 +77,10 @@ export default function AdminResultsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FCFAF5] text-slate-900 flex flex-col font-sans">
-      {/* Top Header */}
+    <ProtectedRoute allowedRoles={["SUPER_ADMIN", "HEAD_EXAMINER"]}>
+      <div className="workspace-shell min-h-screen bg-[#FCFAF5] text-slate-900 flex flex-col font-sans">
+        <TopNavigation activeTab="admin-results" />
+        {/* Top Header */}
       <header className="bg-white border-b border-stone-200 px-6 py-4 sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -448,6 +452,7 @@ export default function AdminResultsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }

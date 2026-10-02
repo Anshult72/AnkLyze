@@ -15,6 +15,7 @@ interface WorkspaceBottomBarProps {
   awardedMarks: number;
   maxMarks: number;
   isFlagged: boolean;
+  isRound2?: boolean;
 }
 
 export default function WorkspaceBottomBar({
@@ -28,7 +29,36 @@ export default function WorkspaceBottomBar({
   awardedMarks,
   maxMarks,
   isFlagged,
+  isRound2 = false,
 }: WorkspaceBottomBarProps) {
+  if (isRound2) {
+    return (
+      <footer className="sticky bottom-0 z-30 bg-white border-t border-slate-200/90 shadow-sm py-2.5 px-3 sm:px-6">
+        <div className="max-w-[1720px] mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center space-x-2 text-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="font-semibold text-slate-800">
+              Independent Question Assignment:
+            </span>
+            <span className="font-mono font-bold text-[#062834] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+              {currentQuestionId}
+            </span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-600">
+              Maximum Marks: <strong className="font-mono">{maxMarks}</strong>
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-3 text-xs">
+            <span className="text-slate-500 hidden sm:inline">
+              Single-attempt evaluation scope. All other questions remain under primary evaluation.
+            </span>
+          </div>
+        </div>
+      </footer>
+    );
+  }
+
   const currentIndex = AVAILABLE_QUESTIONS.findIndex((q) => q.id === currentQuestionId);
   const hasPrevious = currentIndex > 0;
   const hasNext = currentIndex < AVAILABLE_QUESTIONS.length - 1;

@@ -68,7 +68,7 @@
 .sectionIntro .introText { max-width:720px; }
 .sectionMeta { color:#6b8582; font:12px var(--font-mono),monospace; white-space:nowrap; }
 .sectionContent { display:grid; gap:22px; }
-.queueOverview { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.queueOverview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
 .queueOverview>div { min-height:126px; padding:21px 25px; border:1px solid #d5e1db; border-radius:14px; background:#fffefa; }
 .queueOverview strong { display:block; margin:8px 0 2px; color:#062834; font:400 33px/1 var(--font-serif),Georgia,serif; }
 .queueOverview p { margin:0; color:#627a79; font:13px/1.4 Arial,sans-serif; }

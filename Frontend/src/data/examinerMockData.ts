@@ -21,20 +21,47 @@ export interface WorkSummaryMetrics {
   lastUpdated: string;
 }
 
-export type ScriptStatus = "AI Ready" | "Needs Review" | "Attention" | "Completed";
+export type ScriptStatus = "AI Ready" | "In Progress" | "Independent Evaluation" | "Needs Review" | "Attention" | "Completed";
 export type RiskLevel = "Low Risk" | "Medium Risk" | "High Risk" | "Low" | "Medium" | "High";
+
+export type IndependentEvaluationStatus =
+  | "ASSIGNED"
+  | "IN PROGRESS"
+  | "COMPARISON READY"
+  | "AGREED"
+  | "SENT TO MODERATION";
+
+export interface IndependentEvaluationTask {
+  id: string;
+  scriptId: string;
+  questionNumber: string;
+  maxMarks: number;
+  status: IndependentEvaluationStatus;
+  priority: "High" | "Standard";
+  assignedAt: string;
+  reason: string;
+  round1Marks?: number; // Only exposed when status is COMPARISON READY, AGREED, or SENT TO MODERATION
+  round2Marks?: number;
+  markDelta?: number;
+  moderationCaseId?: string;
+  disagreeReason?: string;
+}
 
 export interface EvaluationQueueScript {
   id: string;
   scriptId: string;
   totalAnswers: number;
   detectedAnswers: number;
+  evaluatedAnswers?: number;
   status: ScriptStatus;
   riskLevel: RiskLevel;
-  actionLabel: "Evaluate →" | "Review →";
+  actionLabel: "Evaluate →" | "Review →" | "Resume →" | "View →";
   confidenceScore: number;
   updatedAt: string;
   priorityNote?: string;
+  lastQuestion?: string;
+  resumeQuestion?: string;
+  completedAt?: string;
 }
 
 export interface AttentionItem {
@@ -170,97 +197,212 @@ export const WORK_SUMMARY_DATA: WorkSummaryMetrics = {
   lastUpdated: "Today, 09:30 AM",
 };
 
+export const INITIAL_INDEPENDENT_EVALUATION_TASKS: IndependentEvaluationTask[] = [
+  {
+    id: "indep-10493-q07",
+    scriptId: "SHEET A-10493",
+    questionNumber: "Q07",
+    maxMarks: 10,
+    status: "ASSIGNED",
+    priority: "High",
+    assignedAt: "08:41 AM",
+    reason: "Significant evaluation variance detected",
+    round1Marks: 6,
+  },
+  {
+    id: "indep-10501-q04",
+    scriptId: "SHEET A-10501",
+    questionNumber: "Q04",
+    maxMarks: 7,
+    status: "IN PROGRESS",
+    priority: "High",
+    assignedAt: "08:15 AM",
+    reason: "Second evaluation required",
+    round1Marks: 4,
+  },
+  {
+    id: "indep-10497-q09",
+    scriptId: "SHEET A-10497",
+    questionNumber: "Q09",
+    maxMarks: 8,
+    status: "ASSIGNED",
+    priority: "Standard",
+    assignedAt: "07:55 AM",
+    reason: "Significant evaluation variance detected",
+    round1Marks: 5.5,
+  },
+];
+
 export const EVALUATION_QUEUE_DATA: EvaluationQueueScript[] = [
+  {
+    id: "script-10501",
+    scriptId: "SHEET A-10501",
+    totalAnswers: 1,
+    detectedAnswers: 1,
+    evaluatedAnswers: 0,
+    status: "Independent Evaluation",
+    riskLevel: "High Risk",
+    actionLabel: "Evaluate →",
+    confidenceScore: 88,
+    updatedAt: "08:15 AM",
+    priorityNote: "Q04 · Independent Evaluation · Second evaluation required",
+    lastQuestion: "Q04",
+    resumeQuestion: "Q04",
+  },
   {
     id: "script-10492",
     scriptId: "SHEET A-10492",
     totalAnswers: 12,
     detectedAnswers: 12,
+    evaluatedAnswers: 0,
     status: "AI Ready",
     riskLevel: "Low Risk",
     actionLabel: "Evaluate →",
     confidenceScore: 97,
     updatedAt: "08:45 AM",
+    priorityNote: "Ready to evaluate",
   },
   {
     id: "script-10493",
     scriptId: "SHEET A-10493",
     totalAnswers: 12,
     detectedAnswers: 11,
+    evaluatedAnswers: 11,
     status: "Needs Review",
     riskLevel: "Medium Risk",
     actionLabel: "Review →",
     confidenceScore: 81,
     updatedAt: "08:41 AM",
     priorityNote: "Q07 step-mark divergence",
+    lastQuestion: "Q07",
+    resumeQuestion: "Q07",
   },
   {
     id: "script-10494",
     scriptId: "SHEET A-10494",
     totalAnswers: 12,
     detectedAnswers: 10,
+    evaluatedAnswers: 4,
     status: "Attention",
     riskLevel: "High Risk",
     actionLabel: "Review →",
     confidenceScore: 68,
     updatedAt: "08:38 AM",
     priorityNote: "Q04 handwriting illegible",
+    lastQuestion: "Q04",
+    resumeQuestion: "Q04",
   },
   {
     id: "script-10495",
     scriptId: "SHEET A-10495",
     totalAnswers: 12,
     detectedAnswers: 12,
-    status: "AI Ready",
+    evaluatedAnswers: 8,
+    status: "In Progress",
     riskLevel: "Low Risk",
-    actionLabel: "Evaluate →",
+    actionLabel: "Resume →",
     confidenceScore: 95,
     updatedAt: "08:30 AM",
+    priorityNote: "8 of 12 · Resume Q07",
+    lastQuestion: "Q07",
+    resumeQuestion: "Q07",
   },
   {
     id: "script-10496",
     scriptId: "SHEET A-10496",
     totalAnswers: 12,
     detectedAnswers: 12,
+    evaluatedAnswers: 0,
     status: "AI Ready",
     riskLevel: "Low Risk",
     actionLabel: "Evaluate →",
     confidenceScore: 94,
     updatedAt: "08:24 AM",
+    priorityNote: "Ready to evaluate",
   },
   {
     id: "script-10497",
     scriptId: "SHEET A-10497",
     totalAnswers: 12,
     detectedAnswers: 9,
+    evaluatedAnswers: 9,
     status: "Needs Review",
     riskLevel: "Medium Risk",
     actionLabel: "Review →",
     confidenceScore: 78,
     updatedAt: "08:18 AM",
     priorityNote: "Q09 dual attempt in Section II",
+    lastQuestion: "Q09",
+    resumeQuestion: "Q09",
   },
   {
     id: "script-10498",
     scriptId: "SHEET A-10498",
     totalAnswers: 12,
     detectedAnswers: 12,
+    evaluatedAnswers: 0,
     status: "AI Ready",
     riskLevel: "Low Risk",
     actionLabel: "Evaluate →",
     confidenceScore: 98,
     updatedAt: "08:10 AM",
+    priorityNote: "High AI confidence",
   },
   {
     id: "script-10499",
     scriptId: "SHEET A-10499",
     totalAnswers: 12,
     detectedAnswers: 11,
+    evaluatedAnswers: 10,
     status: "Needs Review",
     riskLevel: "Medium Risk",
     actionLabel: "Review →",
     confidenceScore: 83,
     updatedAt: "08:02 AM",
+    priorityNote: "Q12 margin threshold check",
+    lastQuestion: "Q12",
+    resumeQuestion: "Q12",
+  },
+  {
+    id: "script-10500",
+    scriptId: "SHEET A-10500",
+    totalAnswers: 12,
+    detectedAnswers: 12,
+    evaluatedAnswers: 0,
+    status: "AI Ready",
+    riskLevel: "Low Risk",
+    actionLabel: "Evaluate →",
+    confidenceScore: 96,
+    updatedAt: "07:50 AM",
+    priorityNote: "Ready to evaluate",
+  },
+  {
+    id: "script-10490",
+    scriptId: "SHEET A-10490",
+    totalAnswers: 12,
+    detectedAnswers: 12,
+    evaluatedAnswers: 12,
+    status: "Completed",
+    riskLevel: "Low Risk",
+    actionLabel: "View →",
+    confidenceScore: 96,
+    updatedAt: "08:35 AM",
+    completedAt: "Today, 08:35 AM",
+    priorityNote: "Finalized 61/70",
+  },
+  {
+    id: "script-10491",
+    scriptId: "SHEET A-10491",
+    totalAnswers: 12,
+    detectedAnswers: 12,
+    evaluatedAnswers: 12,
+    status: "Completed",
+    riskLevel: "Low Risk",
+    actionLabel: "View →",
+    confidenceScore: 94,
+    updatedAt: "08:42 AM",
+    completedAt: "Today, 08:42 AM",
+    priorityNote: "Finalized 56/70",
   },
 ];
 
