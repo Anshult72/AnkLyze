@@ -5,8 +5,9 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/server.js",
+    "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit",
     "test:auth": "tsx src/tests/auth.test.ts",
     "test:exam": "tsx src/tests/exam.test.ts",
@@ -70,5 +71,8 @@
     "socket.io-client": "^4.8.4",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

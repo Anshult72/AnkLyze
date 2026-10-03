@@ -12,16 +12,22 @@ initSocketServer(server);
 
 function startServer(): void {
   try {
-    server.listen(config.PORT, () => {
+    server.on("error", (error: any) => {
+      logger.fatal({ err: error }, "HTTP server error event detected");
+      process.exit(1);
+    });
+
+    server.listen(config.PORT, "0.0.0.0", () => {
       logger.info(
         {
           port: config.PORT,
+          host: "0.0.0.0",
           env: config.NODE_ENV,
           apiPrefix: config.API_PREFIX,
           docsUrl: `http://localhost:${config.PORT}${config.API_PREFIX}/docs`,
           healthUrl: `http://localhost:${config.PORT}${config.API_PREFIX}/health`,
         },
-        `🚀 [ANKLYZE API] Server successfully started on port ${config.PORT}`
+        `🚀 [ANKLYZE API] Server successfully started on 0.0.0.0:${config.PORT}`
       );
     });
   } catch (error) {

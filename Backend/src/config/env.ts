@@ -10,7 +10,7 @@ const envSchema = z.object({
     .default("development"),
   PORT: z
     .string()
-    .default("5000")
+    .default("8080")
     .transform((val) => parseInt(val, 10))
     .refine((val) => !isNaN(val) && val > 0 && val < 65536, {
       message: "PORT must be a valid port number between 1 and 65535",
@@ -24,7 +24,8 @@ const envSchema = z.object({
     .default("http://localhost:3000"),
   DATABASE_URL: z
     .string()
-    .min(1, "DATABASE_URL is required"),
+    .optional()
+    .default(""),
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace"])
     .default("info"),
@@ -190,7 +191,7 @@ function validateEnv(): EnvConfig {
     
     return {
       NODE_ENV: (process.env.NODE_ENV as "development" | "production" | "test") || "development",
-      PORT: parseInt(process.env.PORT || "5000", 10),
+      PORT: parseInt(process.env.PORT || "8080", 10),
       API_PREFIX: process.env.API_PREFIX || "/api/v1",
       CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:3000",
       DATABASE_URL: fallbackDbUrl,
@@ -230,6 +231,12 @@ function validateEnv(): EnvConfig {
       OCR_PIPELINE_VERSION: process.env.OCR_PIPELINE_VERSION || "ocr-v1",
       OCR_MAX_RETRIES: parseInt(process.env.OCR_MAX_RETRIES || "2", 10),
     };
+  }
+
+  if (!result.data.DATABASE_URL) {
+    console.warn(
+      "⚠️ [ANKLYZE] DATABASE_URL is not configured in environment variables. Database operations will fail until DATABASE_URL is provided in Cloud Run environment variables."
+    );
   }
 
   return result.data;

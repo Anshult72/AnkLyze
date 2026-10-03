@@ -52,6 +52,26 @@ export function createApp(): Express {
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
   app.use(cookieParser());
 
+  // 3.5 Direct Root & Health Check Endpoints for Cloud Ingress & Probes
+  app.get("/health", (_req, res) => {
+    res.status(200).json({
+      status: "ok",
+      service: "ANKLYZE API",
+      timestamp: new Date().toISOString(),
+      uptimeSeconds: Math.floor(process.uptime()),
+    });
+  });
+
+  app.get("/", (_req, res) => {
+    res.status(200).json({
+      name: "ANKLYZE API",
+      status: "ok",
+      version: "1.0.0",
+      docs: `${config.API_PREFIX}/docs`,
+      health: `${config.API_PREFIX}/health`,
+    });
+  });
+
   // 4. API Routes Mounting (/api/v1)
   app.use(config.API_PREFIX, apiRoutes);
 
