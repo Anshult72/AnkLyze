@@ -51,7 +51,9 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let ws: WebSocket | null = null;
     try {
       const tokenParam = accessToken ? `&token=${encodeURIComponent(accessToken)}` : "";
-      const wsUrl = (process.env.NEXT_PUBLIC_SOCKET_URL || "ws://localhost:5000").replace("http", "ws");
+      const rawApiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
+      const defaultSocketUrl = rawApiUrl.replace(/\/api\/v1\/?$/, "");
+      const wsUrl = (process.env.NEXT_PUBLIC_SOCKET_URL || defaultSocketUrl).replace(/^http/, "ws");
       ws = new WebSocket(`${wsUrl}/socket.io/?EIO=4&transport=websocket${tokenParam}`);
 
       ws.onopen = () => {

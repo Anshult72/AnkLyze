@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import TopNavigation from "@/components/examiner/TopNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/context/AuthContext";
 import { INITIAL_EXAMS, ExamData } from "@/data/examManagementMockData";
 import {
   Plus,
@@ -15,7 +16,11 @@ import {
   Layers,
 } from "lucide-react";
 
+const rawBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
+const API_BASE_URL = rawBaseUrl.endsWith("/api/v1") ? rawBaseUrl : `${rawBaseUrl}/api/v1`;
+
 export default function AdminExamsListPage() {
+  const { accessToken } = useAuth();
   const [exams, setExams] = useState<ExamData[]>(INITIAL_EXAMS);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -24,8 +29,11 @@ export default function AdminExamsListPage() {
   useEffect(() => {
     async function fetchExams() {
       try {
-        const res = await fetch("http://localhost:5000/api/v1/exams", {
+        const res = await fetch(`${API_BASE_URL}/exams`, {
           credentials: "include",
+          headers: {
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
         });
         if (res.ok) {
           const data = await res.json();

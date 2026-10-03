@@ -7,7 +7,8 @@ import TopNavigation from "@/components/examiner/TopNavigation";
 import { useAuth } from "@/context/AuthContext";
 import styles from "./ExaminerAccounts.module.css";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+const rawBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
+const API_BASE_URL = rawBaseUrl.endsWith("/api/v1") ? rawBaseUrl : `${rawBaseUrl}/api/v1`;
 
 interface ExaminerAccount {
   id: string;

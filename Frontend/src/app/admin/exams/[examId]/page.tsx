@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import TopNavigation from "@/components/examiner/TopNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/context/AuthContext";
 import {
   INITIAL_EXAMS,
   AVAILABLE_ACADEMIC_EXAMINERS,
@@ -57,7 +58,11 @@ type LiveQuestion = Omit<RubricQuestionData, "specialInstructions" | "criteria" 
   criteria?: LiveCriterion[];
 };
 
+const rawBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
+const API_BASE_URL = rawBaseUrl.endsWith("/api/v1") ? rawBaseUrl : `${rawBaseUrl}/api/v1`;
+
 export default function ExamWorkbenchPage() {
+  const { accessToken } = useAuth();
   const params = useParams();
   const searchParams = useSearchParams();
   const rawExamId = params?.examId as string;
@@ -131,8 +136,11 @@ export default function ExamWorkbenchPage() {
     async function loadExam() {
       setLoading(true);
       try {
-        const res = await fetch(`http://localhost:5000/api/v1/exams/${rawExamId}`, {
+        const res = await fetch(`${API_BASE_URL}/exams/${rawExamId}`, {
           credentials: "include",
+          headers: {
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
         });
         if (res.ok) {
           const json = await res.json();
@@ -495,9 +503,12 @@ export default function ExamWorkbenchPage() {
 
     try {
       // Attempt backend API call
-      const res = await fetch(`http://localhost:5000/api/v1/marking-schemes/${currentScheme.id}/analyze`, {
+      const res = await fetch(`${API_BASE_URL}/marking-schemes/${currentScheme.id}/analyze`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         credentials: "include",
       });
 

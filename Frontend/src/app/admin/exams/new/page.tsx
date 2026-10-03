@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TopNavigation from "@/components/examiner/TopNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/context/AuthContext";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -14,8 +15,12 @@ import {
   Check,
 } from "lucide-react";
 
+const rawBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
+const API_BASE_URL = rawBaseUrl.endsWith("/api/v1") ? rawBaseUrl : `${rawBaseUrl}/api/v1`;
+
 export default function NewExamPage() {
   const router = useRouter();
+  const { accessToken } = useAuth();
 
   // Form State
   const [title, setTitle] = useState("");
@@ -66,9 +71,12 @@ export default function NewExamPage() {
     };
 
     try {
-      const res = await fetch("http://localhost:5000/api/v1/exams", {
+      const res = await fetch(`${API_BASE_URL}/exams`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         credentials: "include",
         body: JSON.stringify(payload),
       });
