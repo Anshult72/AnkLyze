@@ -8,6 +8,7 @@ import { apiRoutes } from "./routes";
 import { notFoundHandler } from "./middleware/notFound.middleware";
 import { errorHandler } from "./middleware/error.middleware";
 import { securityHeadersMiddleware } from "./middleware/security.middleware";
+import { AppError } from "./utils/app-error";
 
 export function createApp(): Express {
   const app = express();
@@ -30,16 +31,19 @@ export function createApp(): Express {
   );
 
   // 2. Security & CORS Configuration
-  const allowedOrigins = config.CORS_ORIGIN.split(",").map((o) => o.trim());
+  const allowedOrigins = [config.CORS_ORIGIN, config.PUBLIC_FRONTEND_ORIGIN]
+    .flatMap((value) => value.split(","))
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
   app.use(
     cors({
       origin: (origin, callback) => {
         // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        if (allowedOrigins.includes(origin)) {
           return callback(null, true);
         }
-        return callback(new Error(`Origin '${origin}' not allowed by CORS policy`));
+        return callback(AppError.forbidden("Origin not allowed by CORS policy", "CORS_ORIGIN_FORBIDDEN"));
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

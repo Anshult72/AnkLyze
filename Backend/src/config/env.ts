@@ -22,6 +22,9 @@ const envSchema = z.object({
   CORS_ORIGIN: z
     .string()
     .default("http://localhost:3000"),
+  PUBLIC_FRONTEND_ORIGIN: z
+    .string()
+    .default("https://anklyze-flame.vercel.app"),
   DATABASE_URL: z
     .string()
     .optional()
@@ -194,6 +197,7 @@ function validateEnv(): EnvConfig {
       PORT: parseInt(process.env.PORT || "8080", 10),
       API_PREFIX: process.env.API_PREFIX || "/api/v1",
       CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:3000",
+      PUBLIC_FRONTEND_ORIGIN: process.env.PUBLIC_FRONTEND_ORIGIN || "https://anklyze-flame.vercel.app",
       DATABASE_URL: fallbackDbUrl,
       LOG_LEVEL: (process.env.LOG_LEVEL as "info") || "info",
       JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || "anklyze_jwt_access_dev_secret_key_minimum_32_chars_2026",
