@@ -108,7 +108,9 @@ export default function ExamWorkbenchPage() {
   const [selectedExaminerIdToAssign, setSelectedExaminerIdToAssign] = useState("");
 
   // Phase 6: AI Rubric Engine State
-  const [rubricAnalysesMap, setRubricAnalysesMap] = useState<Record<string, RubricAnalysisData[]>>(INITIAL_RUBRIC_ANALYSES);
+  const [rubricAnalysesMap, setRubricAnalysesMap] = useState<Record<string, RubricAnalysisData[]>>(
+    process.env.NODE_ENV === 'production' ? {} : INITIAL_RUBRIC_ANALYSES
+  );
   const [selectedRubricVersion, setSelectedRubricVersion] = useState<number>(1);
   const [isAnalyzingRubric, setIsAnalyzingRubric] = useState(false);
   const [rubricViewMode, setRubricViewMode] = useState<"ai-review" | "human-source" | "compare">("ai-review");
@@ -133,34 +135,43 @@ export default function ExamWorkbenchPage() {
 
   // Load exam
   useEffect(() => {
+    if (!accessToken) return;
+    let cancelled = false;
     async function loadExam() {
       setLoading(true);
       try {
         const res = await fetch(`${API_BASE_URL}/exams/${rawExamId}`, {
           credentials: "include",
-          headers: {
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
+        if (!res.ok) throw new Error(`Could not load exam (HTTP ${res.status})`);
+        const json = await res.json();
+        if (json.success && json.data) {
+          if (!cancelled) {
             setExam(json.data);
             if (json.data.subjects?.length > 0) {
               setSelectedSubjectId(json.data.subjects[0].id);
             }
             setLoading(false);
-            return;
           }
+          return;
         }
+        throw new Error('Invalid exam response');
       } catch {
-        // fallback to mock
+        if (cancelled) return;
+        if (process.env.NODE_ENV === 'production') {
+          setExam(null);
+          setStatusMessage({ type: 'error', text: 'Examination data could not be loaded. Please return to the examination list and retry.' });
+          setLoading(false);
+          return;
+        }
       }
 
       const found = INITIAL_EXAMS.find(
         (e) => e.id === rawExamId || e.code.toLowerCase() === rawExamId?.toLowerCase()
       ) || INITIAL_EXAMS[0];
 
+      if (cancelled) return;
       setExam(JSON.parse(JSON.stringify(found)));
       if (found && found.subjects?.length > 0) {
         setSelectedSubjectId(found.subjects[0].id);
@@ -171,7 +182,8 @@ export default function ExamWorkbenchPage() {
     if (rawExamId) {
       loadExam();
     }
-  }, [rawExamId]);
+    return () => { cancelled = true; };
+  }, [rawExamId, accessToken]);
 
   // Flash status message
   const showFeedback = (type: "success" | "error" | "info", text: string) => {
