@@ -132,7 +132,7 @@ export class QuestionPaperService {
     if (verified.some((item) => !item.maximumMarks || item.maximumMarks <= 0))
       throw AppError.badRequest("Verified questions require positive maximum marks");
     const exam = await prisma.exam.findUnique({ where: { id: paper.examId } });
-    if (exam?.status !== "DRAFT") throw AppError.conflict("Only draft exams can accept question papers");
+    if (exam && !["DRAFT", "ACTIVE"].includes(exam.status)) throw AppError.conflict("Only draft or active exams can accept question papers");
     await prisma.$transaction(async (tx) => {
       const existing = await tx.question.findMany({ where: { subjectId: paper.subjectId,
         questionNumber: { in: verified.map((item) => item.questionNumber) }, isArchived: false } });
@@ -145,7 +145,7 @@ export class QuestionPaperService {
       }
       await tx.questionPaper.update({ where: { id: paperId }, data: { reviewStatus: "APPROVED",
         reviewedById: userId, reviewedAt: new Date(), approvedAt: new Date() } });
-    });
+    }, { maxWait: 15000, timeout: 60000 });
     await AuditService.recordEvent({ event: "QUESTION_PAPER_APPROVED" as any, userId,
       details: { paperId, verifiedQuestions: verified.length } });
     return this.get(paperId);
