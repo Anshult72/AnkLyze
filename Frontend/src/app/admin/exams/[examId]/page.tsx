@@ -1079,6 +1079,9 @@ export default function ExamWorkbenchPage() {
 
               {/* Status Action */}
               <div className="flex items-center sm:self-center gap-2">
+                <Link href={`/admin/exams/${exam.id}/papers?subjectId=${selectedSubjectId}`} className="px-4 py-2 rounded-lg text-xs font-semibold border border-[#b8d0cd] text-[#2c6670] hover:bg-[#eaf3f0]">
+                  Question papers
+                </Link>
                 <button
                   type="button"
                   onClick={handleToggleExamStatus}

@@ -26,6 +26,7 @@ import analyticsRoutes from "./analytics.routes";
 import { resultRoutes } from "./result.routes";
 import { revaluationRoutes } from "./revaluation.routes";
 import { openApiSpec } from "../docs/openapi";
+import { questionPaperRoutes } from "./questionPaper.routes";
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router.use("/examiner-accounts", examinerAccountRoutes);
 // Examination Management Endpoints (Phase 5)
 router.use("/exams", examRoutes);
 router.use("/subjects", subjectRoutes);
+router.use("/question-papers", questionPaperRoutes);
 router.use("/questions", questionRoutes);
 router.use("/marking-schemes", markingSchemeRoutes);
 router.use("/marking-schemes", rubricSchemeRoutes);

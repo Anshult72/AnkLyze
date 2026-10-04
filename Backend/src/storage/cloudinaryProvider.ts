@@ -11,10 +11,12 @@
  */
 
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
+import { randomUUID } from "node:crypto";
 import {
   IStorageProvider,
   StorageDeleteResult,
   StorageMetadata,
+  StoragePaperUploadInput,
   StoragePageUploadInput,
   StorageUploadInput,
   StorageUploadResult,
@@ -100,6 +102,24 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       );
 
       uploadStream.end(input.buffer);
+    });
+  }
+
+  public async uploadPaper(input: StoragePaperUploadInput): Promise<StorageUploadResult> {
+    if (!this.isConfigured) throw new Error("Cloudinary storage provider is not configured");
+    const clean = (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const folder = `ANKLYZE/question-papers/${clean(input.examCode)}/${clean(input.subjectCode)}`;
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream({
+        folder, public_id: `${input.sha256}-${randomUUID()}`, resource_type: "raw",
+        tags: ["anklyze", "question-paper"],
+      }, (error: any, result?: UploadApiResponse) => {
+        if (error || !result) return reject(new Error(`Question paper upload failed: ${error?.message || "No result"}`));
+        resolve({ provider: "CLOUDINARY", assetId: result.public_id,
+          referenceUrl: result.secure_url, fileSize: result.bytes, format: result.format || "pdf",
+          createdAt: new Date(result.created_at || Date.now()), version: String(result.version) });
+      });
+      stream.end(input.buffer);
     });
   }
 

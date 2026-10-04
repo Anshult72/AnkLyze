@@ -7,11 +7,13 @@ import {
   IStorageProvider,
   StorageDeleteResult,
   StorageMetadata,
+  StoragePaperUploadInput,
   StoragePageUploadInput,
   StorageUploadInput,
   StorageUploadResult,
 } from "./storage.interface";
 import { logger } from "../utils/logger";
+import { randomUUID } from "node:crypto";
 
 interface StoredMockAsset {
   assetId: string;
@@ -78,6 +80,19 @@ export class MockStorageProvider implements IStorageProvider {
       createdAt: stored.createdAt,
       version: "mock-v1",
     };
+  }
+
+  public async uploadPaper(input: StoragePaperUploadInput): Promise<StorageUploadResult> {
+    if (this.simulateFailure) throw new Error(`[MockStorageProvider] ${this.failureMessage}`);
+    const assetId = `ANKLYZE/question-papers/${input.examCode}/${input.subjectCode}/${input.sha256}-${randomUUID()}`;
+    const createdAt = new Date();
+    const referenceUrl = `https://mock-storage.anklyze.internal/${assetId}.pdf`;
+    this.storage.set(assetId, {
+      assetId, buffer: input.buffer, mimeType: "application/pdf",
+      originalFilename: input.originalFilename, fileSize: input.buffer.length,
+      format: "pdf", createdAt, referenceUrl,
+    });
+    return { provider: "MOCK", assetId, referenceUrl, fileSize: input.buffer.length, format: "pdf", createdAt };
   }
 
   public async delete(assetId: string): Promise<StorageDeleteResult> {

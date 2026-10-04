@@ -4,7 +4,7 @@
  * Decouples controllers, services, and tests from Cloudinary SDK details.
  */
 
-import { IStorageProvider, StorageDeleteResult, StorageMetadata, StorageUploadInput, StorageUploadResult } from "./storage.interface";
+import { IStorageProvider, StorageDeleteResult, StorageMetadata, StoragePaperUploadInput, StorageUploadInput, StorageUploadResult } from "./storage.interface";
 import { CloudinaryStorageProvider } from "./cloudinaryProvider";
 import { MockStorageProvider } from "./mockStorageProvider";
 import { config } from "../config/env";
@@ -62,6 +62,10 @@ export class StorageService {
 
   public async uploadScript(input: StorageUploadInput): Promise<StorageUploadResult> {
     return this.provider.upload(input);
+  }
+
+  public async uploadPaper(input: StoragePaperUploadInput): Promise<StorageUploadResult> {
+    return this.provider.uploadPaper(input);
   }
 
   public async uploadPage(input: any): Promise<StorageUploadResult> {

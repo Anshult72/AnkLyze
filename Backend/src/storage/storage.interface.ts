@@ -52,10 +52,19 @@ export interface StoragePageUploadInput {
   pageNumber: number;
 }
 
+export interface StoragePaperUploadInput {
+  buffer: Buffer;
+  originalFilename: string;
+  examCode: string;
+  subjectCode: string;
+  sha256: string;
+}
+
 export interface IStorageProvider {
   readonly name: "CLOUDINARY" | "MOCK" | "LOCAL";
   upload(input: StorageUploadInput): Promise<StorageUploadResult>;
   uploadPage(input: StoragePageUploadInput): Promise<StorageUploadResult>;
+  uploadPaper(input: StoragePaperUploadInput): Promise<StorageUploadResult>;
   download(assetId: string, referenceUrl?: string): Promise<Buffer>;
   delete(assetId: string): Promise<StorageDeleteResult>;
   getMetadata(assetId: string): Promise<StorageMetadata | null>;

@@ -19,6 +19,52 @@ export const openApiSpec = {
     },
   ],
   paths: {
+    "/question-papers/subjects/{subjectId}": {
+      get: { summary: "List uploaded papers for a subject", tags: ["Question Papers"], security: [{ bearerAuth: [] }],
+        parameters: [{ name: "subjectId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: { "200": { description: "Paper list" }, "403": { description: "Insufficient role" } } },
+      post: { summary: "Upload a question-paper PDF", tags: ["Question Papers"], security: [{ bearerAuth: [] }],
+        parameters: [{ name: "subjectId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["file"],
+          properties: { file: { type: "string", format: "binary" } } } } } },
+        responses: { "201": { description: "Paper stored as draft" }, "400": { description: "Invalid PDF" },
+          "409": { description: "Duplicate paper or exam not in draft" } } },
+    },
+    "/question-papers/{paperId}": {
+      get: { summary: "Get paper and review items", tags: ["Question Papers"], security: [{ bearerAuth: [] }],
+        parameters: [{ name: "paperId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: { "200": { description: "Paper details with extracted question drafts" } } },
+    },
+    "/question-papers/{paperId}/process": {
+      post: { summary: "Extract question candidates from stored PDF", tags: ["Question Papers"], security: [{ bearerAuth: [] }],
+        parameters: [{ name: "paperId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: { "200": { description: "Candidates staged for review" }, "409": { description: "Already processing or approved" } } },
+    },
+    "/question-papers/{paperId}/items": {
+      post: { summary: "Add a manually verified question", tags: ["Question Papers"], security: [{ bearerAuth: [] }],
+        parameters: [{ name: "paperId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object",
+          required: ["questionNumber", "questionText", "maximumMarks", "pageNumber"],
+          properties: { questionNumber: { type: "string" }, questionText: { type: "string" },
+            maximumMarks: { type: "number" }, pageNumber: { type: "integer" }, section: { type: "string" } } } } } },
+        responses: { "201": { description: "Verified question draft added" } } },
+    },
+    "/question-papers/{paperId}/items/{itemId}": {
+      patch: { summary: "Edit and verify or reject a question draft", tags: ["Question Papers"], security: [{ bearerAuth: [] }],
+        parameters: [{ name: "paperId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "itemId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["reviewStatus"],
+          properties: { reviewStatus: { type: "string", enum: ["VERIFIED", "REJECTED"] },
+            questionNumber: { type: "string" }, questionText: { type: "string" }, maximumMarks: { type: "number" },
+            pageNumber: { type: "integer" }, section: { type: "string" } } } } } },
+        responses: { "200": { description: "Draft review persisted" } } },
+    },
+    "/question-papers/{paperId}/approve": {
+      post: { summary: "Publish verified questions to subject question bank", tags: ["Question Papers"], security: [{ bearerAuth: [] }],
+        parameters: [{ name: "paperId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: { "200": { description: "Verified questions published; marking criteria remain subject to rubric workflow" },
+          "400": { description: "Review incomplete" }, "409": { description: "Exam changed or question conflict" } } },
+    },
     "/health": {
       get: {
         summary: "Service Liveness Check",

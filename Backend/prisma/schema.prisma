@@ -68,6 +68,7 @@ model User {
   approvedRubrics     RubricAnalysis[]     @relation("RubricApprover")
   createdBatches      ScriptBatch[]        @relation("BatchCreator")
   uploadedScripts     AnswerScript[]       @relation("ScriptUploader")
+  uploadedPapers      QuestionPaper[]      @relation("PaperUploader")
   resolvedAttempts    QuestionAttempt[]    @relation("AttemptResolver")
   evaluationDecisions Evaluation[]         @relation("EvaluationExaminer")
   humanEvaluationDecisions ExaminerEvaluationDecision[] @relation("ExaminerDecisionMaker")
@@ -151,6 +152,7 @@ model Exam {
   assignments      ExaminerAssignment[]
   scriptBatches    ScriptBatch[]
   scripts          AnswerScript[]
+  questionPapers   QuestionPaper[]
   calibrationSets  CalibrationSet[]
   results          ExaminationResult[]
 
@@ -177,6 +179,7 @@ model Subject {
   assignments      ExaminerAssignment[]
   scriptBatches    ScriptBatch[]
   scripts          AnswerScript[]
+  questionPapers   QuestionPaper[]
   calibrationSets  CalibrationSet[]
   results          ExaminationResult[]
 
@@ -202,11 +205,66 @@ model Question {
   criteria         MarkingCriterion[]
   attempts         QuestionAttempt[]
   calibrationItems CalibrationItem[]
+  paperItems       QuestionPaperItem[]
 
   @@unique([subjectId, questionNumber])
   @@index([subjectId])
   @@index([orderIndex])
   @@map("questions")
+}
+
+// The uploaded source is retained separately from reviewed, authoritative Questions.
+model QuestionPaper {
+  id                  String              @id @default(uuid())
+  examId              String
+  exam                Exam                @relation(fields: [examId], references: [id], onDelete: Cascade)
+  subjectId           String
+  subject             Subject             @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  originalFilename    String
+  sha256              String
+  storageProvider     StorageProviderType
+  storageAssetId      String
+  storageReference    String
+  fileSize            Int
+  pageCount           Int
+  processingStatus    String              @default("UPLOADED")
+  reviewStatus        String              @default("PENDING")
+  extractionError     String?
+  uploadedById        String?
+  uploadedBy          User?               @relation("PaperUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  reviewedById        String?
+  reviewedAt          DateTime?
+  approvedAt          DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  items               QuestionPaperItem[]
+
+  @@unique([subjectId, sha256])
+  @@index([examId])
+  @@index([subjectId, processingStatus])
+  @@map("question_papers")
+}
+
+model QuestionPaperItem {
+  id             String        @id @default(uuid())
+  paperId        String
+  paper          QuestionPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  questionId     String?
+  question       Question?     @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  questionNumber String
+  questionText   String
+  maximumMarks   Float?
+  section        String?
+  pageNumber     Int
+  orderIndex     Int
+  reviewStatus   String        @default("NEEDS_REVIEW")
+  confidence     Float?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([paperId, questionNumber])
+  @@index([paperId, orderIndex])
+  @@map("question_paper_items")
 }
 
 model MarkingScheme {
