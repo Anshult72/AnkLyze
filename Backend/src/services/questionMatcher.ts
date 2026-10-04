@@ -52,7 +52,7 @@ export class QuestionMatcher {
     /\b(CANCELLED|CANCELED|CANCEL|WRONG|DO\s+NOT\s+EVALUATE|IGNORE\s+THIS|STRUCK\s+OUT|XXXX+)\b/i;
 
   private static readonly HINDI_QUESTION_REGEX =
-    /(?:(?:^|\n|\r|\s)\s*(?:प्रश्न|प्र\.|उत्तर)\s*(?:क्र(?:\.|मांक)?|संख्या)?\s*[\.\(\[]?\s*(\d+|[०-९]+)\s*[\.\)\]]?(?:\s*\(?([a-zA-Zअ-ह])\)?)?)/gi;
+    /(?:(?:^|\n|\r|\s)\s*(?:प्रश्न|प्र\.|उत्तर)\s*(?:क्र(?:\.|मांक)?|संख्या)?\s*[\.\(\[]?\s*(\d+|[०-९]+)\s*[\.\)\]]?(?:\s*(?:का|के)?\s*उत्तर)?(?:\s*(?:\(अथवा\)|अथवा|OR))?)/gi;
 
   private static devanagariToArabic(str: string): string {
     const devanagariDigits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
@@ -112,9 +112,8 @@ export class QuestionMatcher {
       const mainNum = this.devanagariToArabic(rawNum);
       if (!mainNum || mainNum === '0') continue;
 
-      const subPart = (match[2] || '').toLowerCase();
-      const normalizedTokens = this.generateNormalizedTokens(mainNum, subPart);
-      const primaryLabel = subPart ? `Q${mainNum}(${subPart})` : `Q${mainNum}`;
+      const normalizedTokens = this.generateNormalizedTokens(mainNum);
+      const primaryLabel = `Q${mainNum}`;
 
       if (!seenLabels.has(primaryLabel)) {
         seenLabels.add(primaryLabel);
@@ -127,7 +126,7 @@ export class QuestionMatcher {
           rawText: rawMatch,
           normalizedLabel: primaryLabel,
           candidateTokens: normalizedTokens,
-          confidence: matchingBlock ? Math.min(1.0, matchingBlock.confidence + 0.08) : 0.92,
+          confidence: matchingBlock ? Math.min(1.0, matchingBlock.confidence + 0.08) : 0.95,
           boundingBox: matchingBlock?.boundingBox,
         });
       }
@@ -148,6 +147,14 @@ export class QuestionMatcher {
 
     const tokens = new Set<string>();
 
+    // Always include base numbers and Q-prefixed numbers
+    tokens.add(`Q${cleanNum}`);
+    tokens.add(`Q${padded}`);
+    tokens.add(`${cleanNum}`);
+    tokens.add(`${padded}`);
+    tokens.add(`Question ${cleanNum}`);
+    tokens.add(`Ans ${cleanNum}`);
+
     if (subPart) {
       const spLower = subPart.toLowerCase();
       const spUpper = subPart.toUpperCase();
@@ -158,13 +165,6 @@ export class QuestionMatcher {
       tokens.add(`${cleanNum}(${spLower})`);
       tokens.add(`${cleanNum}${spLower}`);
       tokens.add(`${cleanNum}${spUpper}`);
-    } else {
-      tokens.add(`Q${cleanNum}`);
-      tokens.add(`Q${padded}`);
-      tokens.add(`${cleanNum}`);
-      tokens.add(`${padded}`);
-      tokens.add(`Question ${cleanNum}`);
-      tokens.add(`Ans ${cleanNum}`);
     }
 
     return Array.from(tokens);
