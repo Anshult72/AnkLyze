@@ -1,6 +1,7 @@
 import { DOMMatrix, ImageData } from "canvas";
 import { pdfProcessorService } from "./pdfProcessor.service";
 import { ocrService } from "../ocr/ocrService";
+import { logger } from "../utils/logger";
 
 export interface PaperPageText { pageNumber: number; text: string; confidence: number }
 export interface DraftPaperQuestion {
@@ -19,7 +20,16 @@ export function parsePaperQuestions(pages: PaperPageText[]): DraftPaperQuestion[
   let section: string | null = null;
   let current: DraftPaperQuestion | null = null;
   const flush = () => {
-    if (current && current.questionText.trim().length >= 3) questions.push(current);
+    if (current && current.questionText.trim().length >= 3) {
+      if (current.maximumMarks === null) {
+        const trailingMarks = current.questionText.match(/(?:\[\s*(\d+(?:\.\d+)?)\s*\]|\(\s*(?:(?:\d+\s*[x×*]\s*\d+\s*=)?\s*(\d+(?:\.\d+)?))\s*(?:marks?|अंक)?\s*\)|(?:marks?|अंक)\s*[:=-]?\s*(\d+(?:\.\d+)?))\s*$/iu);
+        if (trailingMarks) {
+          current.maximumMarks = Number(trailingMarks[1] || trailingMarks[2] || trailingMarks[3]);
+          current.questionText = current.questionText.slice(0, trailingMarks.index).trim();
+        }
+      }
+      questions.push(current);
+    }
     current = null;
   };
   for (const page of pages) {
@@ -35,7 +45,7 @@ export function parsePaperQuestions(pages: PaperPageText[]): DraftPaperQuestion[
       if (hit && hit[2].length >= 3) {
         flush();
         const questionNumber = hit[1].replace(/\s+/g, "");
-        const markHit = hit[2].match(/(?:\[\s*(\d+(?:\.\d+)?)\s*\]|\(\s*(\d+(?:\.\d+)?)\s*(?:marks?|अंक)?\s*\)|(?:marks?|अंक)\s*[:=-]?\s*(\d+(?:\.\d+)?))\s*$/iu);
+        const markHit = hit[2].match(/(?:\[\s*(\d+(?:\.\d+)?)\s*\]|\(\s*(?:(?:\d+\s*[x×*]\s*\d+\s*=)?\s*(\d+(?:\.\d+)?))\s*(?:marks?|अंक)?\s*\)|(?:marks?|अंक)\s*[:=-]?\s*(\d+(?:\.\d+)?))\s*$/iu);
         const maximumMarks = markHit ? Number(markHit[1] || markHit[2] || markHit[3]) : null;
         current = { questionNumber, questionText: markHit ? hit[2].slice(0, markHit.index).trim() : hit[2], maximumMarks,
           section, pageNumber: page.pageNumber, orderIndex: questions.length + 1, confidence: page.confidence };
@@ -77,17 +87,22 @@ export async function extractPaperPages(buffer: Buffer): Promise<PaperPageText[]
       let text = lines.join("\n");
       let confidence = 0.9;
       if (text.replace(/\s/g, "").length < 40) {
-        rendered ||= await pdfProcessorService.processPdf(buffer);
-        const image = rendered.pages[pageNumber - 1];
-        const ocr = await ocrService.processPageWithRetry({
-          pageNumber, buffer: image.buffer, mimeType: "image/png",
-          width: image.width, height: image.height, languageHints: ["hi", "en"],
-        });
-        if (ocr.provider === "mock" && process.env.NODE_ENV === "production") {
-          throw new Error("Real OCR provider required for scanned question papers");
+        try {
+          rendered ||= await pdfProcessorService.processPdf(buffer);
+          const image = rendered.pages[pageNumber - 1];
+          const ocr = await ocrService.processPageWithRetry({
+            pageNumber, buffer: image.buffer, mimeType: "image/png",
+            width: image.width, height: image.height, languageHints: ["hi", "en"],
+          });
+          if (ocr.provider === "mock" && process.env.NODE_ENV === "production") {
+            throw new Error("Real OCR provider required for scanned question papers");
+          }
+          text = ocr.fullText;
+          confidence = ocr.confidence;
+        } catch (ocrErr) {
+          logger.warn({ err: ocrErr, pageNumber }, "OCR extraction unavailable for page; proceeding with extracted text");
+          confidence = 0.3;
         }
-        text = ocr.fullText;
-        confidence = ocr.confidence;
       }
       pages.push({ pageNumber, text, confidence });
     }
