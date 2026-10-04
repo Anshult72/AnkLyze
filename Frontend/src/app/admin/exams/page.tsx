@@ -21,42 +21,42 @@ const API_BASE_URL = rawBaseUrl.endsWith("/api/v1") ? rawBaseUrl : `${rawBaseUrl
 
 export default function AdminExamsListPage() {
   const { accessToken } = useAuth();
-  const [exams, setExams] = useState<ExamData[]>(INITIAL_EXAMS);
+  const [exams, setExams] = useState<ExamData[]>(process.env.NODE_ENV === 'production' ? [] : INITIAL_EXAMS);
+  const [isLoadingExams, setIsLoadingExams] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   // Fetch live exams from backend if available
   useEffect(() => {
+    if (!accessToken) return;
+    let cancelled = false;
     async function fetchExams() {
       try {
+        setIsLoadingExams(true);
+        setLoadError(null);
         const res = await fetch(`${API_BASE_URL}/exams`, {
           credentials: "include",
           headers: {
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            Authorization: `Bearer ${accessToken}`,
           },
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-            setExams((prev) => {
-              const liveIds = new Set(data.data.map((e: ExamData) => e.id));
-              const combined = [
-                ...data.data.map((d: ExamData) => ({
-                  ...d,
-                  subjects: d.subjects || [],
-                })),
-                ...prev.filter((p) => !liveIds.has(p.id)),
-              ];
-              return combined;
-            });
-          }
-        }
+        if (!res.ok) throw new Error(`Could not load examinations (HTTP ${res.status}).`);
+        const data = await res.json();
+        if (!data.success || !Array.isArray(data.data)) throw new Error('Invalid examination response.');
+        if (!cancelled) setExams(data.data.map((exam: ExamData) => ({ ...exam, subjects: exam.subjects || [] })));
       } catch {
-        // Preserves initial data for mock evaluation
+        if (!cancelled) {
+          setExams([]);
+          setLoadError('Examinations could not be loaded. Please retry.');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingExams(false);
       }
     }
     fetchExams();
-  }, []);
+    return () => { cancelled = true; };
+  }, [accessToken]);
 
   // Filtered exams
   const filteredExams = useMemo(() => {
@@ -157,6 +157,7 @@ export default function AdminExamsListPage() {
 
         {/* 3. MAIN CONTENT WORKSPACE (MATCHING Examiner Dashboard LAYOUT) */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          {loadError && <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">{loadError}</p>}
           
           {/* WORK SUMMARY SURFACE (MATCHING WorkSummary.tsx EXACTLY) */}
           <section aria-labelledby="exam-summary-heading" className="w-full">
@@ -328,7 +329,7 @@ export default function AdminExamsListPage() {
                   {filteredExams.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-5 py-8 text-center text-slate-500">
-                        No examinations match your filter criteria.
+                        {isLoadingExams ? 'Loading examinations…' : loadError ? 'Examination data is unavailable.' : exams.length === 0 ? 'No examinations have been created yet.' : 'No examinations match your filter criteria.'}
                       </td>
                     </tr>
                   ) : (
