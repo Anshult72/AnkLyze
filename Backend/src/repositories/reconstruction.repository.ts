@@ -9,6 +9,7 @@
  * - Strictly NO marks, NO answer grading.
  */
 
+import { randomUUID } from 'crypto';
 import { prisma } from '../config/database';
 import {
   QuestionAttemptState,
@@ -139,28 +140,31 @@ export class ReconstructionRepository {
 
       // Track attempt indices per questionId to prevent unique constraint violation
       const attemptIndexMap = new Map<string, number>();
+      const attemptsToCreate: any[] = [];
+      const pagesToCreate: any[] = [];
+      const regionsToCreate: any[] = [];
 
       for (const att of input.attempts) {
         const nextIndex = (attemptIndexMap.get(att.questionId) || 0) + 1;
         attemptIndexMap.set(att.questionId, nextIndex);
+        const attemptId = randomUUID();
 
-        const createdAttempt = await tx.questionAttempt.create({
-          data: {
-            reconstructionId: reconstruction.id,
-            scriptId: input.scriptId,
-            questionId: att.questionId,
-            attemptIndex: nextIndex,
-            state: att.state,
-            detectedQuestionLabel: att.detectedQuestionLabel,
-            confidence: att.confidence,
-            startPageNumber: att.startPageNumber,
-            endPageNumber: att.endPageNumber,
-            reconstructionReason: att.reconstructionReason,
-            originalSystemState: att.state,
-          },
+        attemptsToCreate.push({
+          id: attemptId,
+          reconstructionId: reconstruction.id,
+          scriptId: input.scriptId,
+          questionId: att.questionId,
+          attemptIndex: nextIndex,
+          state: att.state,
+          detectedQuestionLabel: att.detectedQuestionLabel,
+          confidence: att.confidence,
+          startPageNumber: att.startPageNumber,
+          endPageNumber: att.endPageNumber,
+          reconstructionReason: att.reconstructionReason,
+          originalSystemState: att.state,
         });
 
-        // Insert attempt pages with de-duplication by pageId to satisfy @@unique([attemptId, pageId])
+        // Collect attempt pages with de-duplication by pageId to satisfy @@unique([attemptId, pageId])
         if (att.pages && att.pages.length > 0) {
           const uniquePagesMap = new Map<string, any>();
           for (const p of att.pages) {
@@ -169,24 +173,26 @@ export class ReconstructionRepository {
             }
           }
           const uniquePages = Array.from(uniquePagesMap.values());
-
-          await tx.questionAttemptPage.createMany({
-            data: uniquePages.map((p, idx) => ({
-              attemptId: createdAttempt.id,
+          for (let idx = 0; idx < uniquePages.length; idx++) {
+            const p = uniquePages[idx];
+            pagesToCreate.push({
+              id: randomUUID(),
+              attemptId,
               pageId: p.pageId,
               pageNumber: p.pageNumber,
               pageOrder: idx + 1,
               isContinuation: p.isContinuation,
               regionJson: p.regionJson,
-            })),
-          });
+            });
+          }
         }
 
-        // Insert answer regions if any
+        // Collect answer regions if any
         if (att.regions && att.regions.length > 0) {
-          await tx.answerRegion.createMany({
-            data: att.regions.map((r) => ({
-              attemptId: createdAttempt.id,
+          for (const r of att.regions) {
+            regionsToCreate.push({
+              id: randomUUID(),
+              attemptId,
               pageId: r.pageId,
               pageNumber: r.pageNumber,
               x: r.x,
@@ -196,9 +202,19 @@ export class ReconstructionRepository {
               coordinateSystem: r.coordinateSystem || 'NORMALIZED_0_1',
               confidence: r.confidence,
               label: r.label,
-            })),
-          });
+            });
+          }
         }
+      }
+
+      if (attemptsToCreate.length > 0) {
+        await tx.questionAttempt.createMany({ data: attemptsToCreate });
+      }
+      if (pagesToCreate.length > 0) {
+        await tx.questionAttemptPage.createMany({ data: pagesToCreate });
+      }
+      if (regionsToCreate.length > 0) {
+        await tx.answerRegion.createMany({ data: regionsToCreate });
       }
 
       // Update script's reconstruction status
@@ -223,6 +239,9 @@ export class ReconstructionRepository {
           },
         },
       });
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
     });
   }
 
