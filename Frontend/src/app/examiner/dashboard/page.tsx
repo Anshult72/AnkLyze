@@ -19,7 +19,7 @@ function DashboardContent() {
   // Role resolution: searchParam overrides for testing/demo, falling back to authenticated user role
   const urlRole = searchParams.get("role");
   const authRole = user?.role || "EXAMINER";
-  const activeRole = urlRole || authRole;
+  const activeRole = process.env.NODE_ENV !== "production" ? urlRole || authRole : authRole;
 
   const handleRoleChange = (newRole: string) => {
     if (typeof window !== "undefined") {
@@ -52,7 +52,7 @@ function DashboardContent() {
       <TopNavigation activeTab="dashboard" />
       <main className={styles.main}>
         {/* ROLE CONTEXT SWITCHER BAR (SUBTLE & RESTRAINED) */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 mb-8 border-b border-[#dce7e0] text-xs">
+        {process.env.NODE_ENV !== "production" && <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 mb-8 border-b border-[#dce7e0] text-xs">
           <div className="flex items-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
             <span className="font-semibold text-slate-700">Responsibility Scope:</span>
@@ -115,7 +115,7 @@ function DashboardContent() {
               <span>Super Admin</span>
             </button>
           </div>
-        </div>
+        </div>}
 
         {/* ROLE-SPECIFIC DASHBOARD CONTENT */}
         {activeRole === "SUPER_ADMIN" ? (

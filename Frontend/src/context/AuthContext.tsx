@@ -27,6 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const rawBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
 const API_BASE_URL = rawBaseUrl.endsWith("/api/v1") ? rawBaseUrl : `${rawBaseUrl}/api/v1`;
+const allowOfflineDemo = process.env.NODE_ENV !== "production";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -39,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function initializeSession() {
       if (typeof window !== "undefined") {
         const demoStored = localStorage.getItem("anklyze_demo_user");
-        if (demoStored) {
+        if (allowOfflineDemo && demoStored) {
           try {
             const parsed = JSON.parse(demoStored);
             setUser(parsed);
@@ -111,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         return { success: true };
       } catch (err: unknown) {
-        // Offline demo access is limited to the seeded demo accounts and password.
+        // Offline demo access is available only in development builds.
         const demoAccounts: Record<string, { id: string; fullName: string; role: UserProfile["role"] }> = {
           "superadmin@anklyze.demo": { id: "demo-admin-id", fullName: "ANKLYZE Platform Administrator", role: "SUPER_ADMIN" },
           "head.examiner@anklyze.demo": { id: "demo-head-id", fullName: "Head Examiner", role: "HEAD_EXAMINER" },
@@ -119,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
         const demoEmail = email.toLowerCase().trim();
         const demoAccount = demoAccounts[demoEmail];
-        if (demoAccount && password === "AnklyzeDemo#2026") {
+        if (allowOfflineDemo && demoAccount && password === "AnklyzeDemo#2026") {
           const demoUser: UserProfile = {
             id: demoAccount.id,
             email: demoEmail,
