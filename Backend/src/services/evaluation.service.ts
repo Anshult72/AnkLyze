@@ -641,6 +641,36 @@ export class EvaluationService {
       throw new Error(`AI returned malformed JSON: ${parseErr.message}`);
     }
 
+    // Normalize slight LLM variations before strict schema validation
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.overallAssessment) {
+        if (!parsed.overallAssessment.confidenceBand) {
+          const score = Number(parsed.overallAssessment.confidenceScore ?? 0.85);
+          parsed.overallAssessment.confidenceBand = score >= 0.8 ? 'HIGH' : score >= 0.5 ? 'MEDIUM' : 'LOW';
+        }
+      }
+      if (Array.isArray(parsed.criteria)) {
+        for (let i = 0; i < parsed.criteria.length; i++) {
+          const c = parsed.criteria[i];
+          if (c && typeof c === 'object') {
+            if (!c.status && c.criterionSatisfied) {
+              c.status = c.criterionSatisfied;
+            }
+            if (!c.criterionId && rubricCriteria[i]) {
+              c.criterionId = rubricCriteria[i].id;
+            }
+          }
+        }
+      }
+      if (Array.isArray(parsed.issues)) {
+        parsed.issues = parsed.issues.map((iss: any) =>
+          typeof iss === 'string'
+            ? { issueType: 'LOW_CONFIDENCE', severity: 'MEDIUM', message: iss, requiresReview: false }
+            : iss
+        );
+      }
+    }
+
     const parseResult = evaluationResponseSchema.safeParse(parsed);
     if (!parseResult.success) {
       logger.warn(

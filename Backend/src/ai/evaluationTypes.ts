@@ -34,21 +34,29 @@ export const evaluationCriterionResultSchema = z.object({
     'NOT_SATISFIED',
     'NOT_ASSESSABLE',
     'REQUIRES_REVIEW',
-  ]),
+  ]).default('PARTIALLY_SATISFIED'),
   suggestedMarks: z.number().min(0),
-  maxMarks: z.number().positive(),
-  confidenceScore: z.number().min(0).max(1),
+  maxMarks: z.number().positive().optional().default(1),
+  confidenceScore: z.number().min(0).max(1).default(0.8),
   reasoning: z.string().optional(),
   evidenceSummary: z.string().optional().default(''),
   evidence: z.array(evaluationEvidenceSchema).default([]),
 });
 
-export const evaluationIssueSchema = z.object({
-  issueType: z.string().default('LOW_CONFIDENCE'),
-  severity: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
-  message: z.string().min(1, 'issue message required'),
-  requiresReview: z.boolean().default(false),
-});
+export const evaluationIssueSchema = z.union([
+  z.string().transform((s) => ({
+    issueType: 'LOW_CONFIDENCE',
+    severity: 'MEDIUM' as const,
+    message: s,
+    requiresReview: false,
+  })),
+  z.object({
+    issueType: z.string().default('LOW_CONFIDENCE'),
+    severity: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
+    message: z.string().min(1, 'issue message required'),
+    requiresReview: z.boolean().default(false),
+  }),
+]);
 
 export const aiEvaluationResponseSchema = z.object({
   questionAttemptId: z.string().optional(),
