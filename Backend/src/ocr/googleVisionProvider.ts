@@ -44,22 +44,16 @@ export class GoogleVisionOCRProvider implements IOCRProvider {
         options.apiKey = config.GOOGLE_VISION_API_KEY;
       }
 
-      // Check if credentials or keyfile available
-      if (
-        config.GOOGLE_APPLICATION_CREDENTIALS ||
-        config.GOOGLE_VISION_API_KEY ||
-        process.env.GOOGLE_APPLICATION_CREDENTIALS
-      ) {
-        this.client = new ImageAnnotatorClient(options);
-        this.isConfigured = true;
-        logger.info("GoogleVisionOCRProvider: Initialized with Google Cloud credentials");
-      } else {
-        logger.warn(
-          "GoogleVisionOCRProvider: No Google Cloud credentials found in environment. Real cloud OCR calls will fail."
-        );
-      }
+      // Always initialize ImageAnnotatorClient so ADC (Application Default Credentials)
+      // from the environment or Cloud Run attached service account is used automatically.
+      this.client = new ImageAnnotatorClient(options);
+      this.isConfigured = true;
+      logger.info(
+        "GoogleVisionOCRProvider: Initialized ImageAnnotatorClient using Application Default Credentials (ADC) / environment options"
+      );
     } catch (err: any) {
       logger.error({ error: err.message }, "GoogleVisionOCRProvider initialization error");
+      this.isConfigured = false;
     }
   }
 
@@ -70,10 +64,10 @@ export class GoogleVisionOCRProvider implements IOCRProvider {
   public async processPage(input: OCRProcessPageInput): Promise<NormalizedPageOCRResult> {
     if (!this.client || !this.isConfigured) {
       throw new OCRProviderError(
-        "Google Cloud Vision API is not configured. Please supply GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_VISION_API_KEY.",
-        "AUTHENTICATION_FAILURE",
+        "Google Cloud Vision API client is not initialized.",
+        "NON_TRANSIENT",
         false,
-        401
+        500
       );
     }
 
@@ -262,7 +256,14 @@ export class GoogleVisionOCRProvider implements IOCRProvider {
     if (code === 14 || code === 503 || msg.includes("unavailable") || msg.includes("service")) {
       return "TRANSIENT";
     }
-    if (code === 16 || code === 401 || code === 403 || msg.includes("unauthenticated") || msg.includes("permission")) {
+    if (
+      code === 16 ||
+      code === 401 ||
+      code === 403 ||
+      msg.includes("unauthenticated") ||
+      msg.includes("permission") ||
+      msg.includes("credentials")
+    ) {
       return "AUTHENTICATION_FAILURE";
     }
     if (code === 3 || code === 400 || msg.includes("invalid") || msg.includes("bad request")) {

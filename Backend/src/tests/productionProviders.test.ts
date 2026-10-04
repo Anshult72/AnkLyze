@@ -47,7 +47,7 @@ async function run() {
     assert.equal(ocr.getActiveProviderName(), "google-vision");
     await assert.rejects(
       () => ocr.processPageWithRetry({ pageNumber: 1, buffer: Buffer.from("image"), mimeType: "image/png", width: 1, height: 1 }, 0),
-      /not configured/i
+      /not configured|credentials/i
     );
     console.log("Production provider fail-closed checks passed");
   } finally {
