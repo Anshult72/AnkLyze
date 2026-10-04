@@ -294,6 +294,14 @@ export class RiskController {
         data: result,
       });
     } catch (err: any) {
+      if (err.message === 'EVALUATION_ROUND_ACCESS_DENIED') {
+        res.status(403).json({ success: false, error: { code: err.message, message: 'This round is not assigned to you' } });
+        return;
+      }
+      if (err.message === 'ROUND_2_EVALUATION_REQUIRED' || err.message === 'ROUND_2_EVALUATION_INVALID') {
+        res.status(400).json({ success: false, error: { code: err.message, message: 'A finalized evaluation by the assigned examiner is required' } });
+        return;
+      }
       if (err.name === 'ZodError') {
         res.status(400).json({
           success: false,
@@ -448,7 +456,7 @@ export class RiskController {
   public static async agreeEvaluationRound(req: Request, res: Response): Promise<void> {
     try {
       const { id } = completeRoundParamsSchema.parse(req.params);
-      const callerUserId = (req as any).user?.id || 'examiner';
+      const callerUserId = req.user!.id;
 
       const result = await RiskService.agreeWithFirstRound({
         roundId: id,
@@ -460,6 +468,14 @@ export class RiskController {
         data: result,
       });
     } catch (err: any) {
+      if (err.message === 'EVALUATION_ROUND_ACCESS_DENIED') {
+        res.status(403).json({ success: false, error: { code: err.message, message: 'This round is not assigned to you' } });
+        return;
+      }
+      if (err.message === 'DOUBLE_EVALUATION_RESULT_NOT_READY') {
+        res.status(409).json({ success: false, error: { code: err.message, message: 'Round comparison is not ready' } });
+        return;
+      }
       if (err.message.includes('ROUND_NOT_COMPLETED')) {
         res.status(400).json({
           success: false,
@@ -488,7 +504,7 @@ export class RiskController {
   public static async disagreeEvaluationRound(req: Request, res: Response): Promise<void> {
     try {
       const { id } = completeRoundParamsSchema.parse(req.params);
-      const callerUserId = (req as any).user?.id || 'examiner';
+      const callerUserId = req.user!.id;
       const reason = req.body?.reason;
 
       if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
@@ -510,6 +526,14 @@ export class RiskController {
         data: result,
       });
     } catch (err: any) {
+      if (err.message === 'EVALUATION_ROUND_ACCESS_DENIED') {
+        res.status(403).json({ success: false, error: { code: err.message, message: 'This round is not assigned to you' } });
+        return;
+      }
+      if (err.message === 'DOUBLE_EVALUATION_RESULT_NOT_READY') {
+        res.status(409).json({ success: false, error: { code: err.message, message: 'Round comparison is not ready' } });
+        return;
+      }
       if (err.message.includes('DISAGREE_REASON_REQUIRED')) {
         res.status(400).json({
           success: false,

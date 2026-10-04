@@ -526,8 +526,25 @@ export class RiskService {
       throw new Error(`EVALUATION_ROUND_NOT_FOUND: Round ${params.roundId} does not exist`);
     }
 
+    if (!params.callerUserId || round.evaluatorUserId !== params.callerUserId) {
+      throw new Error('EVALUATION_ROUND_ACCESS_DENIED');
+    }
+
     if (round.status === RoundStatus.COMPLETED) {
       throw new Error(`ROUND_ALREADY_COMPLETED: Round ${params.roundId} is already marked completed`);
+    }
+
+    if (round.roundNumber === 2) {
+      if (!params.evaluationId) {
+        throw new Error('ROUND_2_EVALUATION_REQUIRED');
+      }
+      const submittedEvaluation = await prisma.evaluation.findUnique({ where: { id: params.evaluationId } });
+      if (!submittedEvaluation ||
+          submittedEvaluation.questionAttemptId !== round.questionAttemptId ||
+          submittedEvaluation.examinerUserId !== params.callerUserId ||
+          submittedEvaluation.examinerMarks === null) {
+        throw new Error('ROUND_2_EVALUATION_INVALID');
+      }
     }
 
     // Complete the round
@@ -991,21 +1008,28 @@ export class RiskService {
       throw new Error(`EVALUATION_ROUND_NOT_FOUND: Round ${params.roundId} not found`);
     }
 
+    if (round.roundNumber !== 2 || round.evaluatorUserId !== params.callerUserId) {
+      throw new Error('EVALUATION_ROUND_ACCESS_DENIED');
+    }
+
     if (round.status !== RoundStatus.COMPLETED) {
       throw new Error(`ROUND_NOT_COMPLETED: Round ${params.roundId} must be completed before agree/disagree decision`);
     }
 
     // Update DoubleEvaluationResult status
     const existingResult = await RiskRepository.getDoubleEvaluationResult(round.questionAttemptId);
+    if (!existingResult) {
+      throw new Error('DOUBLE_EVALUATION_RESULT_NOT_READY');
+    }
     const doubleResult = await RiskRepository.saveDoubleEvaluationResult({
       questionAttemptId: round.questionAttemptId,
-      round1Marks: existingResult?.round1Marks ?? 0,
-      round2Marks: existingResult?.round2Marks ?? 0,
-      markDelta: existingResult?.markDelta ?? 0,
-      normalizedDelta: existingResult?.normalizedDelta ?? 0,
+      round1Marks: existingResult.round1Marks,
+      round2Marks: existingResult.round2Marks,
+      markDelta: existingResult.markDelta,
+      normalizedDelta: existingResult.normalizedDelta,
       status: DoubleEvaluationState.DOUBLE_EVALUATION_AGREED,
       requiresSeniorReview: false,
-      criteriaDifferencesCount: existingResult?.criteriaDifferencesCount ?? 0,
+      criteriaDifferencesCount: existingResult.criteriaDifferencesCount,
     });
 
     await AuditService.recordEvent({
@@ -1046,22 +1070,29 @@ export class RiskService {
       throw new Error(`EVALUATION_ROUND_NOT_FOUND: Round ${params.roundId} not found`);
     }
 
+    if (round.roundNumber !== 2 || round.evaluatorUserId !== params.callerUserId) {
+      throw new Error('EVALUATION_ROUND_ACCESS_DENIED');
+    }
+
     if (round.status !== RoundStatus.COMPLETED) {
       throw new Error(`ROUND_NOT_COMPLETED: Round ${params.roundId} must be completed before agree/disagree decision`);
     }
 
     // Update DoubleEvaluationResult status
     const existingResult = await RiskRepository.getDoubleEvaluationResult(round.questionAttemptId);
+    if (!existingResult) {
+      throw new Error('DOUBLE_EVALUATION_RESULT_NOT_READY');
+    }
     const doubleResult = await RiskRepository.saveDoubleEvaluationResult({
       questionAttemptId: round.questionAttemptId,
-      round1Marks: existingResult?.round1Marks ?? 0,
-      round2Marks: existingResult?.round2Marks ?? 0,
-      markDelta: existingResult?.markDelta ?? 0,
-      normalizedDelta: existingResult?.normalizedDelta ?? 0,
+      round1Marks: existingResult.round1Marks,
+      round2Marks: existingResult.round2Marks,
+      markDelta: existingResult.markDelta,
+      normalizedDelta: existingResult.normalizedDelta,
       status: DoubleEvaluationState.DOUBLE_EVALUATION_DISAGREEMENT,
       requiresSeniorReview: true,
       seniorReviewNotes: params.reason.trim(),
-      criteriaDifferencesCount: existingResult?.criteriaDifferencesCount ?? 2,
+      criteriaDifferencesCount: existingResult.criteriaDifferencesCount,
     });
 
     // Create or find existing ModerationCase

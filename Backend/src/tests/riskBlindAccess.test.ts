@@ -12,6 +12,7 @@ const originalResult = RiskRepository.getDoubleEvaluationResult;
 const originalRound = RiskRepository.getEvaluationRoundById;
 const originalFindAttempt = prisma.questionAttempt.findUnique;
 const originalFindAssignments = prisma.examinerAssignment.findMany;
+const originalFindEvaluation = prisma.evaluation.findUnique;
 
 const rounds = [
   {
@@ -79,6 +80,32 @@ async function run() {
     assert.equal(ownResponse.statusCode, 200);
     assert.equal(ownResponse.body.data.id, rounds[1].id);
 
+    await assert.rejects(
+      RiskService.completeEvaluationRound({ roundId: rounds[1].id, callerUserId: 'unassigned-examiner' }),
+      /EVALUATION_ROUND_ACCESS_DENIED/
+    );
+    await assert.rejects(
+      RiskService.completeEvaluationRound({ roundId: rounds[1].id, callerUserId: 'second-examiner' }),
+      /ROUND_2_EVALUATION_REQUIRED/
+    );
+    (prisma.evaluation.findUnique as any) = async () => ({
+      questionAttemptId: rounds[1].questionAttemptId,
+      examinerUserId: 'first-examiner',
+      examinerMarks: 3,
+    });
+    await assert.rejects(
+      RiskService.completeEvaluationRound({ roundId: rounds[1].id, callerUserId: 'second-examiner', evaluationId: 'first-evaluation' }),
+      /ROUND_2_EVALUATION_INVALID/
+    );
+    await assert.rejects(
+      RiskService.agreeWithFirstRound({ roundId: rounds[1].id, callerUserId: 'unassigned-examiner' }),
+      /EVALUATION_ROUND_ACCESS_DENIED/
+    );
+    await assert.rejects(
+      RiskService.disagreeWithFirstRound({ roundId: rounds[1].id, callerUserId: 'unassigned-examiner', reason: 'Different mark' }),
+      /EVALUATION_ROUND_ACCESS_DENIED/
+    );
+
     let assignmentWhere: any;
     (prisma.questionAttempt.findUnique as any) = async () => ({
       question: { subjectId: 'social-science' },
@@ -103,6 +130,7 @@ async function run() {
     (RiskRepository.getEvaluationRoundById as any) = originalRound;
     (prisma.questionAttempt.findUnique as any) = originalFindAttempt;
     (prisma.examinerAssignment.findMany as any) = originalFindAssignments;
+    (prisma.evaluation.findUnique as any) = originalFindEvaluation;
   }
 }
 
