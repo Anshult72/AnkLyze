@@ -696,7 +696,9 @@ export class RiskService {
   } {
     const difference = Math.abs(params.aiSuggestedMarks - params.round1Marks);
     const roundedDiff = Math.round(difference * 100) / 100;
-    const requiresSecondEvaluation = roundedDiff >= 3.0;
+    // Decide from the unrounded difference. Rounding 2.999 to 3.00 would
+    // incorrectly create an independent evaluation task.
+    const requiresSecondEvaluation = difference >= 3.0 || Math.abs(difference - 3.0) < 1e-12;
     return {
       difference: roundedDiff,
       requiresSecondEvaluation,

@@ -42,6 +42,9 @@ async function runTestSuite() {
   const t2 = RiskService.checkSecondEvaluationTrigger({ aiSuggestedMarks: 7.0, round1Marks: 9.99 });
   assert(!t2.requiresSecondEvaluation && t2.difference === 2.99, 'Difference 2.99 does NOT trigger Round 2');
 
+  const belowBoundary = RiskService.checkSecondEvaluationTrigger({ aiSuggestedMarks: 6.0, round1Marks: 3.001 });
+  assert(!belowBoundary.requiresSecondEvaluation, 'Difference 2.999 does NOT round up into a mandatory second evaluation');
+
   // 3. Difference 3.0 -> Round 2 required
   const t3 = RiskService.checkSecondEvaluationTrigger({ aiSuggestedMarks: 7.0, round1Marks: 10.0 });
   assert(t3.requiresSecondEvaluation && t3.difference === 3.0, 'Difference 3.0 TRIGGERS Round 2 required');
