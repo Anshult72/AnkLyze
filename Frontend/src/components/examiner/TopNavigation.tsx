@@ -22,7 +22,6 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { EXAMINER_CONTEXT } from "@/data/examinerMockData";
 import styles from "./TopNavigation.module.css";
 
 export interface NavItem {
@@ -113,7 +112,7 @@ export default function TopNavigation({ activeTab = "dashboard" }: TopNavigation
   // Role and identity resolution
   const displayRole = user?.role || "EXAMINER";
   let roleLabel = "EXAMINER";
-  let defaultName = EXAMINER_CONTEXT.examinerName;
+  let defaultName = "Examiner";
   if (displayRole === "SUPER_ADMIN") {
     roleLabel = "SUPER ADMIN";
     defaultName = "ANKLYZE Platform Admin";
@@ -125,7 +124,7 @@ export default function TopNavigation({ activeTab = "dashboard" }: TopNavigation
   const displayName = user?.fullName || defaultName;
   const initials = displayName
     .split(" ")
-    .map((part) => part[0])
+    .map((part: string) => part[0])
     .filter(Boolean)
     .slice(0, 2)
     .join("")
@@ -281,7 +280,7 @@ export default function TopNavigation({ activeTab = "dashboard" }: TopNavigation
                   {user?.institution ||
                     (displayRole === "SUPER_ADMIN"
                       ? "ANKLYZE Central Administration"
-                      : EXAMINER_CONTEXT.evaluationCenter)}
+                      : (user?.department || "Central Evaluation Board"))}
                 </p>
                 <button
                   type="button"

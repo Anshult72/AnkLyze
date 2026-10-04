@@ -5,7 +5,7 @@ import Link from "next/link";
 import TopNavigation from "@/components/examiner/TopNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
-import { INITIAL_EXAMS, ExamData } from "@/data/examManagementMockData";
+import { ExamData } from "@/data/examManagementMockData";
 import {
   Plus,
   Search,
@@ -21,7 +21,7 @@ const API_BASE_URL = rawBaseUrl.endsWith("/api/v1") ? rawBaseUrl : `${rawBaseUrl
 
 export default function AdminExamsListPage() {
   const { accessToken } = useAuth();
-  const [exams, setExams] = useState<ExamData[]>(process.env.NODE_ENV === 'production' ? [] : INITIAL_EXAMS);
+  const [exams, setExams] = useState<ExamData[]>([]);
   const [isLoadingExams, setIsLoadingExams] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");

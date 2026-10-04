@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -17,30 +17,94 @@ import {
   Info,
   Activity,
   Award,
+  RefreshCw,
 } from "lucide-react";
-import {
-  MOCK_OPERATIONAL_COVERAGE,
-  MOCK_EVALUATORS_CONSISTENCY,
-  MOCK_DRIFT_OBSERVATIONS,
-} from "@/data/analyticsMockData";
-
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import TopNavigation from "@/components/examiner/TopNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { fetchApi } from "@/utils/apiClient";
+
+interface OperationalCoverage {
+  exam: { id: string; title: string; code: string; academicTerm?: string };
+  totalAssignedAttempts: number;
+  evaluatedAttempts: number;
+  highRiskAttempts: number;
+  doubleEvaluationRequired: number;
+  doubleEvaluationCompleted: number;
+  moderationCasesOpen: number;
+  moderationCasesResolved: number;
+}
 
 function AnalyticsContent() {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as "coverage" | "consistency" | "drift") || "coverage";
   const [activeTab, setActiveTab] = useState<"coverage" | "consistency" | "drift">(initialTab);
-  const coverage = MOCK_OPERATIONAL_COVERAGE;
-  const evaluators = MOCK_EVALUATORS_CONSISTENCY;
-  const driftList = MOCK_DRIFT_OBSERVATIONS;
 
-  const evalProgressPct = Math.round((coverage.evaluatedAttempts / coverage.totalAssignedAttempts) * 100);
-  const doubleEvalProgressPct = Math.round((coverage.doubleEvaluationCompleted / coverage.doubleEvaluationRequired) * 100);
-  const moderationResolvedPct = Math.round((coverage.moderationCasesResolved / (coverage.moderationCasesResolved + coverage.moderationCasesOpen)) * 100);
-  const highRiskPct = Math.round((coverage.highRiskAttempts / coverage.totalAssignedAttempts) * 100);
+  const [exams, setExams] = useState<any[]>([]);
+  const [selectedExamId, setSelectedExamId] = useState<string>("");
+  const [coverage, setCoverage] = useState<OperationalCoverage | null>(null);
+  const [evaluators, setEvaluators] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadExamsAndCoverage = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const examsRes = await fetchApi<any[]>("/exams");
+      if (examsRes.success && Array.isArray(examsRes.data) && examsRes.data.length > 0) {
+        setExams(examsRes.data);
+        const examId = selectedExamId || examsRes.data[0].id;
+        if (!selectedExamId) setSelectedExamId(examId);
+
+        const [covRes, accountsRes] = await Promise.all([
+          fetchApi<any>(`/analytics/exams/${examId}/coverage`).catch(() => null),
+          fetchApi<any[]>("/examiner-accounts").catch(() => null),
+        ]);
+
+        if (covRes && covRes.success && covRes.data) {
+          const d = covRes.data;
+          const oc = d.operationalCoverage || {};
+          setCoverage({
+            exam: d.exam || { id: examId, title: "Active Exam", code: "EXAM" },
+            totalAssignedAttempts: oc.totalAttempts || 0,
+            evaluatedAttempts: oc.evaluatedAttempts || 0,
+            highRiskAttempts: oc.highRiskAttempts || 0,
+            doubleEvaluationRequired: oc.doubleEvaluationRequired || 0,
+            doubleEvaluationCompleted: oc.doubleEvaluationCompleted || 0,
+            moderationCasesOpen: oc.openModerationCases || 0,
+            moderationCasesResolved: oc.resolvedModerationCases || 0,
+          });
+        } else {
+          setCoverage(null);
+        }
+
+        if (accountsRes && accountsRes.success && Array.isArray(accountsRes.data)) {
+          setEvaluators(accountsRes.data);
+        }
+      } else {
+        setExams([]);
+        setCoverage(null);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to load operational analytics");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadExamsAndCoverage();
+  }, [selectedExamId]);
+
+  const totalAssigned = coverage?.totalAssignedAttempts || 0;
+  const evalProgressPct = totalAssigned > 0 ? Math.round(((coverage?.evaluatedAttempts || 0) / totalAssigned) * 100) : 0;
+  const doubleRequired = coverage?.doubleEvaluationRequired || 0;
+  const doubleEvalProgressPct = doubleRequired > 0 ? Math.round(((coverage?.doubleEvaluationCompleted || 0) / doubleRequired) * 100) : 0;
+  const totalModeration = (coverage?.moderationCasesResolved || 0) + (coverage?.moderationCasesOpen || 0);
+  const moderationResolvedPct = totalModeration > 0 ? Math.round(((coverage?.moderationCasesResolved || 0) / totalModeration) * 100) : 100;
+  const highRiskPct = totalAssigned > 0 ? Math.round(((coverage?.highRiskAttempts || 0) / totalAssigned) * 100) : 0;
 
   return (
     <div className="workspace-shell min-h-screen bg-[#FCFAF5] text-slate-900 flex flex-col font-sans">
@@ -59,19 +123,42 @@ function AnalyticsContent() {
             <div className="h-4 w-px bg-stone-300" />
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-900 text-white">
-                Quality & Consistency Analytics
+                Quality &amp; Consistency Analytics
               </span>
-              <span className="text-xs text-slate-500 font-mono">Phase 13 Institutional Oversight</span>
+              <span className="text-xs text-slate-500 font-mono">Institutional Oversight</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {exams.length > 0 && (
+              <select
+                value={selectedExamId}
+                onChange={(e) => setSelectedExamId(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-stone-300 text-xs font-semibold text-slate-800 bg-white"
+              >
+                {exams.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.title}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <button
+              onClick={loadExamsAndCoverage}
+              disabled={loading}
+              className="p-1.5 rounded-lg border border-stone-300 bg-white hover:bg-stone-50 text-slate-600 transition-colors"
+              title="Refresh Analytics"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-teal-600" : ""}`} />
+            </button>
+
             <Link
               href="/moderation"
               className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-slate-800 text-xs font-semibold rounded-lg transition-colors inline-flex items-center gap-1.5"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-slate-600" />
-              <span>Moderation Backlog ({coverage.moderationCasesOpen})</span>
+              <span>Moderation Backlog ({coverage?.moderationCasesOpen || 0})</span>
             </Link>
           </div>
         </div>
@@ -83,7 +170,7 @@ function AnalyticsContent() {
         <div className="bg-stone-50 border border-stone-200 rounded-lg p-4 flex items-start gap-3 shadow-xs">
           <Info className="w-5 h-5 text-slate-700 shrink-0 mt-0.5" />
           <div className="text-xs text-slate-700 leading-relaxed">
-            <span className="font-semibold text-slate-900">ANKLYZE Analytics Policy & Ethics Principle: </span>
+            <span className="font-semibold text-slate-900">ANKLYZE Analytics Policy &amp; Ethics Principle: </span>
             All descriptive metrics, drift indicators, and consistency rates are strictly generated for operational oversight, rubric alignment, and moderation prioritization. They are never converted into personal rankings, public leaderboards, or automated punitive scores.
           </div>
         </div>
@@ -103,7 +190,6 @@ function AnalyticsContent() {
               <Layers className="w-4 h-4" />
               <span>Operational Coverage</span>
             </button>
-
             <button
               id="tab-consistency"
               onClick={() => setActiveTab("consistency")}
@@ -116,276 +202,144 @@ function AnalyticsContent() {
               <Users className="w-4 h-4" />
               <span>Evaluator Consistency</span>
             </button>
-
-            <button
-              id="tab-drift"
-              onClick={() => setActiveTab("drift")}
-              className={`pb-3 px-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 inline-flex items-center gap-2 ${
-                activeTab === "drift"
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-              <span>Evaluator Drift Signals</span>
-              {driftList.filter((d) => d.status === "DETECTED").length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-900 font-mono font-bold">
-                  {driftList.filter((d) => d.status === "DETECTED").length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <div className="text-xs text-slate-500 font-medium pb-3">
-            Scope: <span className="font-semibold text-slate-800">{coverage.examTitle}</span> ({coverage.academicTerm})
           </div>
         </div>
 
-        {/* Tab 1: Operational Coverage */}
-        {activeTab === "coverage" && (
-          <div className="space-y-6 animate-fadeIn">
-            {/* 4 Metric Highlights */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-xs">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Evaluation Progress</div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-bold font-mono text-slate-900">{evalProgressPct}%</span>
-                  <span className="text-xs text-slate-600 font-mono">{coverage.evaluatedAttempts} / {coverage.totalAssignedAttempts}</span>
-                </div>
-                <div className="w-full bg-stone-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                  <div className="bg-slate-900 h-full rounded-full" style={{ width: `${evalProgressPct}%` }} />
-                </div>
-                <div className="text-[11px] text-slate-500 mt-2">{coverage.pendingAttempts} attempts pending</div>
-              </div>
-
-              <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-xs">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Double Evaluation</div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-bold font-mono text-slate-900">{doubleEvalProgressPct}%</span>
-                  <span className="text-xs text-slate-600 font-mono">{coverage.doubleEvaluationCompleted} / {coverage.doubleEvaluationRequired}</span>
-                </div>
-                <div className="w-full bg-stone-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                  <div className="bg-emerald-600 h-full rounded-full" style={{ width: `${doubleEvalProgressPct}%` }} />
-                </div>
-                <div className="text-[11px] text-slate-500 mt-2">Triggered for high-risk attempts</div>
-              </div>
-
-              <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-xs">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Moderation Backlog</div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-bold font-mono text-slate-900">{coverage.moderationCasesOpen}</span>
-                  <span className="text-xs text-slate-600 font-mono">{moderationResolvedPct}% resolved</span>
-                </div>
-                <div className="w-full bg-stone-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                  <div className="bg-amber-600 h-full rounded-full" style={{ width: `${moderationResolvedPct}%` }} />
-                </div>
-                <div className="text-[11px] text-slate-500 mt-2">{coverage.moderationCasesResolved} cases resolved</div>
-              </div>
-
-              <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-xs">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">High-Risk Attempts</div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-bold font-mono text-slate-900">{coverage.highRiskAttempts}</span>
-                  <span className="text-xs text-slate-600 font-mono">{highRiskPct}% of total</span>
-                </div>
-                <div className="w-full bg-stone-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                  <div className="bg-rose-600 h-full rounded-full" style={{ width: `${highRiskPct}%` }} />
-                </div>
-                <div className="text-[11px] text-slate-500 mt-2">Deterministic triggers &amp; variance flags</div>
-              </div>
-            </div>
-
-            {/* Detailed Operational Breakdown Table */}
-            <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-xs">
-              <div className="p-4 border-b border-stone-200 flex items-center justify-between">
-                <div className="font-semibold text-sm text-slate-900">Subject-Wise Operational Coverage</div>
-                <span className="text-xs text-slate-500">Real-time status</span>
-              </div>
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-stone-50 border-b border-stone-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4">Subject</th>
-                    <th className="py-3 px-4">Total Assigned</th>
-                    <th className="py-3 px-4">Evaluated</th>
-                    <th className="py-3 px-4">Pending</th>
-                    <th className="py-3 px-4">High Risk</th>
-                    <th className="py-3 px-4">Double Eval</th>
-                    <th className="py-3 px-4">Moderation Cases</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100 font-mono text-slate-800">
-                  <tr className="hover:bg-stone-50/60 transition-colors font-sans">
-                    <td className="py-3 px-4 font-semibold text-slate-900">Engineering Mathematics III (CS-301)</td>
-                    <td className="py-3 px-4 font-mono">260</td>
-                    <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">224 (86%)</td>
-                    <td className="py-3 px-4 font-mono text-amber-700 font-semibold">36</td>
-                    <td className="py-3 px-4 font-mono text-rose-700 font-semibold">28</td>
-                    <td className="py-3 px-4 font-mono">32 / 36</td>
-                    <td className="py-3 px-4 font-mono">5 Open / 12 Resolved</td>
-                  </tr>
-                  <tr className="hover:bg-stone-50/60 transition-colors font-sans">
-                    <td className="py-3 px-4 font-semibold text-slate-900">Thermodynamics & Fluid Mechanics (ME-302)</td>
-                    <td className="py-3 px-4 font-mono">190</td>
-                    <td className="py-3 px-4 font-mono text-emerald-700 font-semibold">154 (81%)</td>
-                    <td className="py-3 px-4 font-mono text-amber-700 font-semibold">36</td>
-                    <td className="py-3 px-4 font-mono text-rose-700 font-semibold">18</td>
-                    <td className="py-3 px-4 font-mono">16 / 18</td>
-                    <td className="py-3 px-4 font-mono">3 Open / 8 Resolved</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+        {loading ? (
+          <div className="p-16 text-center text-xs text-slate-500 space-y-3 bg-white border border-stone-200 rounded-xl">
+            <RefreshCw className="w-8 h-8 animate-spin text-teal-600 mx-auto" />
+            <p className="font-semibold text-slate-700">Loading operational analytics from server...</p>
           </div>
-        )}
-
-        {/* Tab 2: Evaluator Consistency */}
-        {activeTab === "consistency" && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-xs">
-              <div className="p-4 border-b border-stone-200 flex items-center justify-between">
-                <div>
-                  <div className="font-semibold text-sm text-slate-900">Descriptive Marking & Consistency Overview</div>
-                  <div className="text-xs text-slate-500">Observable marking tendencies & rubric alignment without ranking</div>
+        ) : error ? (
+          <div className="p-12 text-center text-xs text-rose-600 space-y-3 bg-white border border-rose-200 rounded-xl">
+            <AlertTriangle className="w-6 h-6 mx-auto text-rose-500" />
+            <p className="font-semibold text-slate-800">{error}</p>
+            <button
+              onClick={loadExamsAndCoverage}
+              className="px-3.5 py-1.5 bg-[#062834] text-white hover:bg-[#1a4452] rounded-lg font-medium text-xs"
+            >
+              Retry
+            </button>
+          </div>
+        ) : activeTab === "coverage" ? (
+          <div className="space-y-6">
+            {/* High-level Coverage Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Attempt Evaluation
+                  </span>
+                  <FileCheck2 className="w-4 h-4 text-slate-400" />
                 </div>
-                <div className="text-xs text-slate-500 font-mono">3 Active Evaluators</div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900">{evalProgressPct}%</span>
+                  <span className="text-xs text-slate-500">
+                    ({coverage?.evaluatedAttempts || 0}/{coverage?.totalAssignedAttempts || 0})
+                  </span>
+                </div>
               </div>
 
+              <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-teal-700">
+                    Double Evaluation
+                  </span>
+                  <ShieldCheck className="w-4 h-4 text-teal-600" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-teal-700">{doubleEvalProgressPct}%</span>
+                  <span className="text-xs text-slate-500">
+                    ({coverage?.doubleEvaluationCompleted || 0}/{coverage?.doubleEvaluationRequired || 0} completed)
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                    Moderation Resolution
+                  </span>
+                  <CheckCircle2 className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-amber-700">{moderationResolvedPct}%</span>
+                  <span className="text-xs text-slate-500">
+                    ({coverage?.moderationCasesResolved || 0} resolved / {coverage?.moderationCasesOpen || 0} open)
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-rose-700">
+                    High Risk Density
+                  </span>
+                  <AlertTriangle className="w-4 h-4 text-rose-600" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-rose-700">{highRiskPct}%</span>
+                  <span className="text-xs text-slate-500">({coverage?.highRiskAttempts || 0} attempts flagged)</span>
+                </div>
+              </div>
+            </div>
+
+            {totalAssigned === 0 && (
+              <div className="p-12 text-center text-xs text-slate-500 space-y-2 bg-white rounded-xl border border-stone-200">
+                <BarChart3 className="w-8 h-8 mx-auto text-slate-300" />
+                <h3 className="font-semibold text-slate-700 text-sm">No Evaluation Attempts Recorded Yet</h3>
+                <p className="text-slate-400">
+                  Operational coverage metrics populate automatically as answer sheets are ingested and evaluated by examiners.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Evaluators Tab */
+          <div className="bg-white rounded-xl border border-stone-200 shadow-2xs overflow-hidden">
+            {evaluators.length === 0 ? (
+              <div className="p-12 text-center text-xs text-slate-500 space-y-2">
+                <Users className="w-8 h-8 mx-auto text-slate-300" />
+                <p className="font-semibold text-slate-700 text-sm">No examiner accounts configured</p>
+                <p className="text-slate-400">Examiner consistency profiles generate with active evaluation sessions.</p>
+              </div>
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-stone-50 border-b border-stone-200 text-slate-600 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-4">Evaluator & Discipline</th>
-                      <th className="py-3 px-4">Evaluations</th>
-                      <th className="py-3 px-4">Mean Awarded</th>
-                      <th className="py-3 px-4">AI Override Rate</th>
-                      <th className="py-3 px-4">2nd Eval Disagreements</th>
-                      <th className="py-3 px-4">Moderation Cases</th>
-                      <th className="py-3 px-4">Consensus Deviation</th>
+                    <tr className="bg-stone-50 border-b border-stone-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                      <th className="px-4 py-3">Examiner</th>
+                      <th className="px-4 py-3">Role</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Institution</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100 text-slate-800">
+                  <tbody className="divide-y divide-stone-200">
                     {evaluators.map((ev) => (
-                      <tr key={ev.evaluatorId} className="hover:bg-stone-50/60 transition-colors">
-                        <td className="py-3 px-4">
-                          <div className="font-semibold text-slate-900">{ev.evaluatorName}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">{ev.subject}</div>
+                      <tr key={ev.id} className="hover:bg-stone-50/70 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-slate-900">{ev.fullName}</div>
+                          <div className="text-[11px] text-slate-500">{ev.email}</div>
                         </td>
-                        <td className="py-3 px-4 font-mono font-medium">{ev.totalAttemptsEvaluated}</td>
-                        <td className="py-3 px-4 font-mono">
-                          <span className="font-semibold text-slate-900">{ev.meanAwardedMarks.toFixed(2)}</span>
-                          <span className="text-slate-500"> / {ev.meanMaxMarks.toFixed(1)}</span>
-                          <span className="text-[10px] text-slate-400 block">Med: {ev.medianAwardedMarks.toFixed(1)}</span>
-                        </td>
-                        <td className="py-3 px-4 font-mono">
-                          <span className="font-semibold">{ev.aiOverrideRate.toFixed(1)}%</span>
-                          <span className="text-[10px] text-slate-500 block">{ev.criterionOverrideFrequency} criteria</span>
-                        </td>
-                        <td className="py-3 px-4 font-mono">
-                          <span className={ev.secondEvalDisagreementCount > 2 ? "text-amber-800 font-bold" : "text-slate-700"}>
-                            {ev.secondEvalDisagreementCount}
+                        <td className="px-4 py-3 font-mono text-slate-700">{ev.role?.name || ev.role}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              ev.status === "ACTIVE"
+                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                : "bg-slate-100 text-slate-700 border border-slate-200"
+                            }`}
+                          >
+                            {ev.status || "ACTIVE"}
                           </span>
                         </td>
-                        <td className="py-3 px-4 font-mono">
-                          <span className="font-medium text-slate-800">{ev.moderationReferralCount}</span>
-                        </td>
-                        <td className="py-3 px-4 font-mono">
-                          <span className="font-semibold text-emerald-800">±{ev.medianAbsoluteDeviationFromCalibration.toFixed(2)} marks</span>
-                          <span className="text-[10px] text-slate-500 block">{ev.calibrationCriteriaAgreementRate.toFixed(0)}% consensus rate</span>
-                        </td>
+                        <td className="px-4 py-3 text-slate-600">{ev.institution || "State Board"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 3: Evaluator Drift Signals */}
-        {activeTab === "drift" && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="grid grid-cols-1 gap-4">
-              {driftList.map((drift) => (
-                <div
-                  key={drift.id}
-                  className={`bg-white border rounded-xl p-5 shadow-xs transition-all ${
-                    drift.status === "INSUFFICIENT_DATA"
-                      ? "border-stone-200 opacity-80"
-                      : drift.severity === "SIGNIFICANT"
-                      ? "border-amber-300"
-                      : "border-stone-200"
-                  }`}
-                >
-                  <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-slate-900">{drift.evaluatorName}</span>
-                      <span className="text-xs text-slate-500 font-mono">{drift.subjectName}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
-                          drift.status === "INSUFFICIENT_DATA"
-                            ? "bg-stone-100 text-slate-600 border border-stone-200"
-                            : drift.severity === "SIGNIFICANT"
-                            ? "bg-amber-100 text-amber-900 border border-amber-200"
-                            : "bg-blue-50 text-blue-800 border border-blue-200"
-                        }`}
-                      >
-                        {drift.signalType.replace(/_/g, " ")}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 font-mono">
-                        Sample: <span className="font-bold text-slate-800">{drift.sampleSize}</span> (min: {drift.minSampleSize})
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                          drift.status === "DETECTED"
-                            ? "bg-amber-100 text-amber-900"
-                            : "bg-stone-100 text-slate-600"
-                        }`}
-                      >
-                        {drift.status.replace(/_/g, " ")}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-                    <div className="p-3 bg-stone-50 border border-stone-200 rounded-lg">
-                      <div className="text-[11px] text-slate-500 uppercase">Baseline Metric</div>
-                      <div className="text-base font-bold font-mono text-slate-800">
-                        {drift.baselineMetric.toFixed(1)}{drift.signalType.includes("RATE") ? "%" : " marks"}
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-stone-50 border border-stone-200 rounded-lg">
-                      <div className="text-[11px] text-slate-500 uppercase">Current Window Metric</div>
-                      <div className="text-base font-bold font-mono text-slate-900">
-                        {drift.currentMetric.toFixed(1)}{drift.signalType.includes("RATE") ? "%" : " marks"}
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-stone-50 border border-stone-200 rounded-lg">
-                      <div className="text-[11px] text-slate-500 uppercase">Observed Delta</div>
-                      <div className={`text-base font-bold font-mono ${drift.delta > 0 ? "text-amber-800" : "text-slate-800"}`}>
-                        {drift.delta > 0 ? `+${drift.delta.toFixed(1)}` : drift.delta.toFixed(1)}{drift.signalType.includes("RATE") ? "%" : " marks"}
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-stone-50 border border-stone-200 rounded-lg">
-                      <div className="text-[11px] text-slate-500 uppercase">Evaluation Window</div>
-                      <div className="text-xs font-mono text-slate-700 mt-0.5">
-                        {drift.windowStart} to {drift.windowEnd}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-stone-50 rounded-lg text-xs text-slate-700 leading-relaxed border border-stone-100">
-                    <span className="font-semibold text-slate-900">Signal Observation: </span>
-                    {drift.descriptiveExplanation}
-                  </div>
-                </div>
-              ))}
-            </div>
+            )}
           </div>
         )}
       </main>
@@ -393,10 +347,10 @@ function AnalyticsContent() {
   );
 }
 
-export default function QualityAnalyticsPage() {
+export default function AdminAnalyticsPage() {
   return (
     <ProtectedRoute allowedRoles={["SUPER_ADMIN", "HEAD_EXAMINER"]}>
-      <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500">Loading Quality Analytics...</div>}>
+      <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500">Loading analytics...</div>}>
         <AnalyticsContent />
       </Suspense>
     </ProtectedRoute>

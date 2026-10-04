@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -24,32 +24,131 @@ import {
   Scale,
   Hash,
   ExternalLink,
+  RefreshCw,
 } from "lucide-react";
-import { MOCK_RESULTS_LIST, ResultDetailData, ResultQuestionItem } from "@/data/resultMockData";
+import type { ResultDetailData, ResultQuestionItem } from "@/data/resultMockData";
+import { fetchApi } from "@/utils/apiClient";
 
 export default function ResultDetailPage() {
   const params = useParams();
-  const resultId = (params.resultId as string) || "res-01";
+  const resultId = (params?.resultId as string) || "";
 
-  const initialResult = MOCK_RESULTS_LIST.find((r) => r.id === resultId) || MOCK_RESULTS_LIST[0];
-  const [result, setResult] = useState<ResultDetailData>(initialResult);
+  const [result, setResult] = useState<ResultDetailData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"breakdown" | "validation" | "provenance" | "history">("breakdown");
 
   // Revaluation drawer state
   const [showRevalDrawer, setShowRevalDrawer] = useState(false);
   const [revalScope, setRevalScope] = useState<"QUESTION_SPECIFIC_REVIEW" | "FULL_RESULT_REVIEW">("QUESTION_SPECIFIC_REVIEW");
-  const [selectedQuestion, setSelectedQuestion] = useState(result.questions[0]?.questionNumber || "Q01");
-  const [newProposedMarks, setNewProposedMarks] = useState<number>(result.questions[0]?.awardedMarks || 0);
+  const [selectedQuestion, setSelectedQuestion] = useState("Q01");
+  const [newProposedMarks, setNewProposedMarks] = useState<number>(0);
   const [revalReason, setRevalReason] = useState("");
   const [isProcessingReval, setIsProcessingReval] = useState(false);
 
   // Explainable Report Modal State
   const [showReportModal, setShowReportModal] = useState(false);
-  const [reportVersion, setReportVersion] = useState<number>(result.version);
+  const [reportVersion, setReportVersion] = useState<number>(1);
+
+  const loadResult = async () => {
+    if (!resultId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchApi<any>(`/results/${resultId}`);
+      if (res.success && res.data) {
+        const item = res.data;
+        const mapped: ResultDetailData = {
+          id: item.id,
+          examId: item.examId || item.exam?.id || "exam-01",
+          examTitle: item.exam?.title || "Board Examination 2026",
+          examCode: item.exam?.code || "EXAM-2026",
+          subjectId: item.subjectId || item.subject?.id || "subj-01",
+          subjectName: item.subject?.name || "Subject Examination",
+          subjectCode: item.subject?.code || "SUB-01",
+          scriptId: item.script?.scriptCode || item.scriptId,
+          candidateReference: item.script?.candidateReference || `ROLL-${item.scriptId.slice(0, 8).toUpperCase()}`,
+          version: item.version || 1,
+          status: item.status || "VALIDATED",
+          validationStatus: item.validationStatus || "PASSED",
+          totalMarks: item.totalMarks ?? item.totalAwardedMarks ?? 0,
+          maximumMarks: item.maximumMarks ?? item.maxMarks ?? 100,
+          percentage: item.percentage ?? 0,
+          resultCode: item.resultCode || "PASS",
+          createdAt: item.createdAt || new Date().toISOString(),
+          updatedAt: item.updatedAt || new Date().toISOString(),
+          approvedAt: item.approvedAt,
+          approvedByName: item.approvedBy?.fullName || (item.approvedAt ? "Head Examiner" : undefined),
+          fingerprint: item.fingerprint || (item.id ? item.id.slice(0, 16) : "fp-result"),
+          questions: (item.questionMarks || item.questions || []).map((qm: any) => ({
+            id: qm.id,
+            questionAttemptId: qm.questionAttemptId || qm.id,
+            questionNumber: qm.questionNumber || "Q01",
+            section: qm.section,
+            maximumMarks: qm.maximumMarks || qm.maxMarks || 10,
+            awardedMarks: qm.awardedMarks || 0,
+            status: qm.status || "AGGREGATED",
+            sourceDecisionId: qm.sourceDecisionId || "dec-1",
+            sourceDecisionVersion: qm.sourceDecisionVersion || 1,
+            sourceExaminerName: qm.sourceExaminerName || "Lead Examiner",
+            feedbackSnippet: qm.feedbackSnippet,
+          })),
+          validationIssues: item.validationIssues || [],
+          history: item.history || [],
+        };
+        setResult(mapped);
+        setReportVersion(mapped.version);
+        if (mapped.questions.length > 0) {
+          setSelectedQuestion(mapped.questions[0].questionNumber);
+          setNewProposedMarks(mapped.questions[0].awardedMarks);
+        }
+      } else {
+        setError(res.error?.message || "Result not found");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to load examination result");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadResult();
+  }, [resultId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FCFAF5] flex items-center justify-center p-8">
+        <div className="text-center space-y-3">
+          <RefreshCw className="w-8 h-8 animate-spin text-teal-600 mx-auto" />
+          <p className="font-semibold text-slate-700 text-sm">Loading examination result...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !result) {
+    return (
+      <div className="min-h-screen bg-[#FCFAF5] flex items-center justify-center p-8">
+        <div className="text-center space-y-3 max-w-md bg-white p-8 rounded-2xl border border-rose-200 shadow-xs">
+          <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto" />
+          <h2 className="text-base font-bold text-slate-900">Result Record Unavailable</h2>
+          <p className="text-xs text-slate-600">{error || "The requested result could not be found."}</p>
+          <Link
+            href="/admin/results"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#062834] text-white rounded-lg text-xs font-semibold"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Return to Results
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const isBlocked = result.status === "BLOCKED" || result.validationStatus === "BLOCKED";
   const isApproved = result.status === "APPROVED";
   const isValidated = result.status === "VALIDATED";
+
 
   const handleCreateRevaluation = (e: React.FormEvent) => {
     e.preventDefault();

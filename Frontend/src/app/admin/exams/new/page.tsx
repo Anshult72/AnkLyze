@@ -89,9 +89,7 @@ export default function NewExamPage() {
         setErrorMessage(data?.error?.message || "Failed to create examination cycle. Please verify fields.");
       }
     } catch {
-      // Local fallback navigation for prototype testing
-      const generatedId = `exam-${Date.now()}`;
-      router.push(`/admin/exams/${generatedId}`);
+      setErrorMessage("Could not reach the exam service. Nothing was created; please retry.");
     } finally {
       setIsLoading(false);
     }

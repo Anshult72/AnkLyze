@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,10 +18,11 @@ import {
   Database,
   Info,
   RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 import TopNavigation from "@/components/examiner/TopNavigation";
 import { useAuth } from "@/context/AuthContext";
-import { MOCK_EXAMS, MOCK_SUBJECTS } from "@/data/examManagementMockData";
+import { fetchApi } from "@/utils/apiClient";
 
 interface SelectedFileItem {
   id: string;
@@ -41,14 +42,16 @@ export default function NewScriptBatchPage() {
   // Workflow steps: 1 = Exam & Subject & Batch Config, 2 = Upload & Ingestion, 3 = Batch Summary
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
+  const [exams, setExams] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [loadingInitial, setLoadingInitial] = useState<boolean>(true);
+
   // Step 1: Form configuration
-  const [selectedExamId, setSelectedExamId] = useState(MOCK_EXAMS[0]?.id || "");
-  const [selectedSubjectId, setSelectedSubjectId] = useState(
-    MOCK_SUBJECTS.find((s) => s.examId === MOCK_EXAMS[0]?.id)?.id || ""
-  );
-  const [batchCode, setBatchCode] = useState("BATCH-2026-CS301-003");
+  const [selectedExamId, setSelectedExamId] = useState("");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [batchCode, setBatchCode] = useState(`BATCH-2026-${Date.now().toString().slice(-4)}`);
   const [source, setSource] = useState("DIGITAL_SCANNER");
-  const [batchNotes, setBatchNotes] = useState("Regular semester digitized answer books scan intake");
+  const [batchNotes, setBatchNotes] = useState("Digitized student answer books scan intake");
 
   // Step 2: Upload files
   const [selectedFiles, setSelectedFiles] = useState<SelectedFileItem[]>([]);
@@ -68,52 +71,66 @@ export default function NewScriptBatchPage() {
     results: { name: string; status: string; scriptCode?: string; error?: string }[];
   } | null>(null);
 
-  const isAdminOrHead =
-    user?.role === "SUPER_ADMIN" || user?.role === "HEAD_EXAMINER";
+  const isAdminOrHead = user?.role === "SUPER_ADMIN" || user?.role === "HEAD_EXAMINER";
+
+  useEffect(() => {
+    async function loadExamsAndSubjects() {
+      setLoadingInitial(true);
+      try {
+        const [examsRes, subjectsRes] = await Promise.all([
+          fetchApi<any[]>("/exams"),
+          fetchApi<any[]>("/subjects"),
+        ]);
+
+        if (examsRes.success && Array.isArray(examsRes.data)) {
+          setExams(examsRes.data);
+          if (examsRes.data.length > 0) {
+            setSelectedExamId(examsRes.data[0].id);
+          }
+        }
+        if (subjectsRes.success && Array.isArray(subjectsRes.data)) {
+          setSubjects(subjectsRes.data);
+        }
+      } catch (err) {
+        console.error("Failed to load exams or subjects", err);
+      } finally {
+        setLoadingInitial(false);
+      }
+    }
+    loadExamsAndSubjects();
+  }, []);
 
   // Filter subjects for the selected exam
-  const availableSubjects = MOCK_SUBJECTS.filter((s) => s.examId === selectedExamId);
-  const currentExam = MOCK_EXAMS.find((e) => e.id === selectedExamId);
-  const currentSubject = MOCK_SUBJECTS.find((s) => s.id === selectedSubjectId);
+  const availableSubjects = subjects.filter((s) => s.examId === selectedExamId);
+  const currentExam = exams.find((e) => e.id === selectedExamId);
+  const currentSubject = subjects.find((s) => s.id === selectedSubjectId);
+
+  useEffect(() => {
+    if (availableSubjects.length > 0 && !availableSubjects.some((s) => s.id === selectedSubjectId)) {
+      setSelectedSubjectId(availableSubjects[0].id);
+    }
+  }, [selectedExamId, availableSubjects]);
 
   const handleExamChange = (examId: string) => {
     setSelectedExamId(examId);
-    const firstSubj = MOCK_SUBJECTS.find((s) => s.examId === examId);
+    const firstSubj = subjects.find((s) => s.examId === examId);
     if (firstSubj) {
       setSelectedSubjectId(firstSubj.id);
-      const cleanSubj = firstSubj.code.replace(/[^A-Za-z0-9]/g, "");
-      setBatchCode(`BATCH-2026-${cleanSubj}-003`);
+      const cleanSubj = (firstSubj.code || "SUB").replace(/[^A-Za-z0-9]/g, "");
+      setBatchCode(`BATCH-2026-${cleanSubj}-${Date.now().toString().slice(-4)}`);
     } else {
       setSelectedSubjectId("");
     }
   };
 
-  const handleSubjectChange = (subjectId: string) => {
-    setSelectedSubjectId(subjectId);
-    const subj = MOCK_SUBJECTS.find((s) => s.id === subjectId);
-    if (subj) {
-      const cleanSubj = subj.code.replace(/[^A-Za-z0-9]/g, "");
-      setBatchCode(`BATCH-2026-${cleanSubj}-003`);
-    }
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-    const files = Array.from(e.target.files);
-    addFilesToQueue(files);
-  };
+    const incomingFiles = Array.from(e.target.files);
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (!e.dataTransfer.files) return;
-    const files = Array.from(e.dataTransfer.files);
-    addFilesToQueue(files);
-  };
+    const newItems: SelectedFileItem[] = incomingFiles.map((file) => {
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const isOversized = file.size > 25 * 1024 * 1024; // 25 MB limit
 
-  const addFilesToQueue = (files: File[]) => {
-    const newItems: SelectedFileItem[] = files.map((file) => {
-      const isPdf = file.name.toLowerCase().endsWith(".pdf");
-      const isOversized = file.size > 25 * 1024 * 1024;
       let initialStatus: SelectedFileItem["status"] = "PENDING";
       let error: string | undefined;
 
@@ -142,67 +159,95 @@ export default function NewScriptBatchPage() {
     setSelectedFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
-  // Perform Simulated or Real Intake Ingestion
+  // Perform Intake Ingestion via Backend API
   const handleStartIngestion = async () => {
     if (selectedFiles.length === 0) return;
 
     setIsUploading(true);
-    setUploadProgress(10);
+    setUploadProgress(15);
 
-    // Simulate progress and process each file
-    const results: { name: string; status: string; scriptCode?: string; error?: string }[] = [];
-    let successful = 0;
-    const failed = 0;
-    let duplicates = 0;
-    let rejected = 0;
-
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const item = selectedFiles[i];
-      setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 90));
-
-      if (item.status === "REJECTED") {
-        rejected++;
-        results.push({ name: item.name, status: "REJECTED", error: item.error });
-        continue;
-      }
-
-      // Check if duplicate filename/checksum simulation
-      if (item.name.toLowerCase().includes("duplicate")) {
-        duplicates++;
-        results.push({
-          name: item.name,
-          status: "DUPLICATE",
-          error: "Duplicate checksum detected for this subject",
-        });
-        continue;
-      }
-
-      // Successful simulated ingestion
-      const randomScriptCode = `A-${Math.floor(10000 + Math.random() * 90000)}`;
-      successful++;
-      results.push({
-        name: item.name,
-        status: "SUCCESS",
-        scriptCode: randomScriptCode,
+    try {
+      // 1. Create or ensure the Batch exists in Backend
+      let batchId = "";
+      const batchCreateRes = await fetchApi<any>("/script-batches", {
+        method: "POST",
+        body: {
+          examId: selectedExamId,
+          subjectId: selectedSubjectId,
+          batchCode,
+          source,
+          notes: batchNotes,
+        },
       });
+
+      if (batchCreateRes.success && batchCreateRes.data) {
+        batchId = batchCreateRes.data.id;
+      } else {
+        // If batch with code already exists, fetch batches to find ID
+        const existingBatches = await fetchApi<any[]>("/script-batches");
+        if (existingBatches.success && Array.isArray(existingBatches.data)) {
+          const match = existingBatches.data.find((b: any) => b.batchCode === batchCode);
+          if (match) batchId = match.id;
+        }
+      }
+
+      if (!batchId) {
+        throw new Error(batchCreateRes.error?.message || "Failed to initialize intake batch record");
+      }
+
+      setUploadProgress(40);
+
+      // 2. Upload PDF files via multipart FormData
+      const formData = new FormData();
+      const validFiles = selectedFiles.filter((f) => f.status !== "REJECTED");
+
+      validFiles.forEach((item) => {
+        formData.append("files", item.file);
+      });
+
+      const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+      const apiBase =
+        process.env.NEXT_PUBLIC_API_URL || "https://anklyze-gitconnect-38002070587.asia-south1.run.app/api/v1";
+      const uploadUrl = `${apiBase}/script-batches/${batchId}/scripts`;
+
+      setUploadProgress(65);
+
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+
+      const json = await res.json();
+      setUploadProgress(100);
+
+      if (res.ok && json.success) {
+        const d = json.data;
+        setBatchSummary({
+          batchCode: d.batchCode || batchCode,
+          examCode: currentExam?.code || "EXAM-2026",
+          subjectCode: currentSubject?.code || "SUB-01",
+          totalFiles: d.totalFiles || selectedFiles.length,
+          successful: d.successful || 0,
+          failed: d.failed || 0,
+          duplicates: d.duplicates || 0,
+          rejected: d.rejected || selectedFiles.filter((f) => f.status === "REJECTED").length,
+          results: d.results?.map((r: any) => ({
+            name: r.originalFilename || r.name,
+            status: r.status,
+            scriptCode: r.scriptCode,
+            error: r.error,
+          })) || [],
+        });
+        setStep(3);
+      } else {
+        alert(json.error?.message || "Batch upload failed. Please verify file integrity.");
+      }
+    } catch (err: any) {
+      alert(err?.message || "Batch ingestion failed. Network or server error.");
+    } finally {
+      setIsUploading(false);
     }
-
-    setUploadProgress(100);
-    setIsUploading(false);
-
-    setBatchSummary({
-      batchCode,
-      examCode: currentExam?.code || "EXAM-2026-W-CS3",
-      subjectCode: currentSubject?.code || "CS-301",
-      totalFiles: selectedFiles.length,
-      successful,
-      failed,
-      duplicates,
-      rejected,
-      results,
-    });
-
-    setStep(3);
   };
 
   if (!isAdminOrHead) {
@@ -258,154 +303,129 @@ export default function NewScriptBatchPage() {
 
           {/* Workflow Progress Steps */}
           <div className="flex items-center justify-between mt-8 border-t border-slate-100 pt-6">
-            <div className={`flex items-center gap-2 ${step >= 1 ? "text-blue-600 font-bold" : "text-slate-400"}`}>
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                  step > 1
-                    ? "bg-blue-600 text-white"
-                    : step === 1
-                    ? "bg-blue-100 text-blue-700 border border-blue-300"
-                    : "bg-slate-100 text-slate-500"
-                }`}
-              >
+            <div className={`flex items-center gap-2 text-xs font-semibold ${step >= 1 ? "text-blue-600" : "text-slate-400"}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 1 ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"}`}>
                 1
-              </div>
-              <span className="text-xs sm:text-sm">Batch Configuration</span>
+              </span>
+              <span>Batch Configuration</span>
             </div>
-
-            <div className="w-12 h-0.5 bg-slate-200"></div>
-
-            <div className={`flex items-center gap-2 ${step >= 2 ? "text-blue-600 font-bold" : "text-slate-400"}`}>
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                  step > 2
-                    ? "bg-blue-600 text-white"
-                    : step === 2
-                    ? "bg-blue-100 text-blue-700 border border-blue-300"
-                    : "bg-slate-100 text-slate-500"
-                }`}
-              >
+            <div className="h-0.5 flex-1 bg-slate-200 mx-4" />
+            <div className={`flex items-center gap-2 text-xs font-semibold ${step >= 2 ? "text-blue-600" : "text-slate-400"}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 2 ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"}`}>
                 2
-              </div>
-              <span className="text-xs sm:text-sm">Upload & Validation</span>
+              </span>
+              <span>Upload PDF Answer Sheets</span>
             </div>
-
-            <div className="w-12 h-0.5 bg-slate-200"></div>
-
-            <div className={`flex items-center gap-2 ${step === 3 ? "text-emerald-600 font-bold" : "text-slate-400"}`}>
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                  step === 3
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-100 text-slate-500"
-                }`}
-              >
+            <div className="h-0.5 flex-1 bg-slate-200 mx-4" />
+            <div className={`flex items-center gap-2 text-xs font-semibold ${step === 3 ? "text-blue-600" : "text-slate-400"}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${step === 3 ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"}`}>
                 3
-              </div>
-              <span className="text-xs sm:text-sm">Batch Summary</span>
+              </span>
+              <span>Intake Confirmation</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Workflow Content */}
+      {/* Form Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
-        {/* STEP 1: BATCH CONFIGURATION */}
-        {step === 1 && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 sm:p-8 space-y-6">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Step 1: Examination & Subject Association</h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Sheets in this batch will be immutably linked to the selected exam and subject.
+        {loadingInitial ? (
+          <div className="p-16 text-center text-xs text-slate-500 space-y-3 bg-white rounded-xl border border-slate-200">
+            <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto" />
+            <p className="font-semibold text-slate-700">Loading examinations and subjects...</p>
+          </div>
+        ) : step === 1 ? (
+          <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-xs space-y-6">
+            <div className="border-b border-slate-100 pb-4">
+              <h2 className="text-base font-bold text-slate-900">Step 1: Examination &amp; Batch Metadata</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Assign this intake batch to an active examination and syllabus subject.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                  Select Examination <span className="text-red-500">*</span>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Examination *
                 </label>
                 <select
                   value={selectedExamId}
                   onChange={(e) => handleExamChange(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {MOCK_EXAMS.map((exam) => (
-                    <option key={exam.id} value={exam.id}>
-                      {exam.code} — {exam.title}
+                  {exams.map((ex) => (
+                    <option key={ex.id} value={ex.id}>
+                      {ex.title} ({ex.code})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                  Select Subject <span className="text-red-500">*</span>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Subject *
                 </label>
                 <select
                   value={selectedSubjectId}
-                  onChange={(e) => handleSubjectChange(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {availableSubjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.code} — {subject.name}
+                  {availableSubjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name} ({sub.code})
                     </option>
                   ))}
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                  Batch Code <span className="text-red-500">*</span>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Batch Code *
                 </label>
                 <input
                   type="text"
                   value={batchCode}
                   onChange={(e) => setBatchCode(e.target.value)}
-                  placeholder="e.g. BATCH-2026-CS301-001"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-300 font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
                 />
-                <span className="text-[11px] text-slate-400 mt-1 block font-mono">
-                  Unique identifier for physical/digital reconciliation.
-                </span>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                  Intake Source
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Scan Source
                 </label>
                 <select
                   value={source}
                   onChange={(e) => setSource(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="DIGITAL_SCANNER">Digital Scanner Feed</option>
-                  <option value="UNIVERSITY_PORTAL">University Authority Ingestion</option>
-                  <option value="MANUAL_INTAKE">Approved Admin Intake</option>
+                  <option value="DIGITAL_SCANNER">Institutional High-Speed Scanner</option>
+                  <option value="BATCH_FTP">Secure FTP Transfer</option>
+                  <option value="MANUAL_UPLOAD">Supervised Administrator Upload</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                Batch Notes & Intake Manifest (Optional)
+              <label className="text-xs font-semibold text-slate-700 block mb-1">
+                Batch Notes
               </label>
               <textarea
-                rows={3}
+                rows={2}
                 value={batchNotes}
                 onChange={(e) => setBatchNotes(e.target.value)}
-                placeholder="Details regarding scanning session, hall number, or box numbers..."
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Optional administrative intake notes..."
               />
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
               <Link
                 href="/admin/scripts"
-                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800"
               >
                 Cancel
               </Link>
@@ -413,285 +433,152 @@ export default function NewScriptBatchPage() {
                 type="button"
                 onClick={() => setStep(2)}
                 disabled={!selectedExamId || !selectedSubjectId || !batchCode}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 shadow-xs transition-colors disabled:opacity-50"
               >
-                Proceed to Upload
-                <ArrowRight className="w-4 h-4" />
+                <span>Continue to Upload</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
-        )}
-
-        {/* STEP 2: UPLOAD & VALIDATION */}
-        {step === 2 && (
-          <div className="space-y-6">
-            {/* Batch Context Card */}
-            <div className="bg-blue-50/60 rounded-xl p-4 border border-blue-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-3">
-                <FolderArchive className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                <div>
-                  <span className="font-semibold text-slate-900">Target Batch:</span>{" "}
-                  <span className="font-mono font-bold text-blue-800">{batchCode}</span>
-                </div>
-              </div>
-              <div className="text-slate-600">
-                <span className="font-semibold">{currentExam?.code}</span> • {currentSubject?.name} (
-                {currentSubject?.code})
-              </div>
+        ) : step === 2 ? (
+          <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-xs space-y-6">
+            <div className="border-b border-slate-100 pb-4">
+              <h2 className="text-base font-bold text-slate-900">Step 2: Upload Digitized Answer Sheets</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Upload student answer books in PDF format for {currentSubject?.name || "selected subject"}.
+              </p>
             </div>
 
-            {/* Upload Zone */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 sm:p-8">
-              <h2 className="text-base font-bold text-slate-900 mb-1">Step 2: Upload Digital Answer Books</h2>
-              <p className="text-xs text-slate-500 mb-6">
-                Drag and drop scanned PDF answer sheets. Magic bytes, SHA-256 duplicate detection, and size limits (max 25MB) will be enforced.
-              </p>
-
-              {/* Dropzone */}
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleDrop}
-                className="border-2 border-dashed border-slate-300 hover:border-blue-400 bg-slate-50/50 hover:bg-blue-50/20 rounded-xl p-8 text-center transition-colors cursor-pointer"
-                onClick={() => document.getElementById("file-upload-input")?.click()}
-              >
+            {/* Drag & Drop Box */}
+            <div className="p-8 border-2 border-dashed border-slate-300 rounded-xl text-center hover:border-blue-500 transition-colors bg-slate-50/50">
+              <Upload className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+              <label className="cursor-pointer">
+                <span className="text-xs font-bold text-blue-600 hover:text-blue-700 underline">
+                  Choose PDF files
+                </span>
+                <span className="text-xs text-slate-500"> or drag and drop answer sheets here</span>
                 <input
-                  id="file-upload-input"
                   type="file"
                   multiple
                   accept="application/pdf"
+                  onChange={handleFilesSelected}
                   className="hidden"
-                  onChange={handleFileInputChange}
                 />
-                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3 border border-blue-100">
-                  <Upload className="w-6 h-6" />
+              </label>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Supports individual or batch PDF uploads up to 25 MB per document.
+              </p>
+            </div>
+
+            {/* Selected Files List */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>Selected Answer Books ({selectedFiles.length})</span>
+                  <button
+                    onClick={() => setSelectedFiles([])}
+                    className="text-red-600 hover:text-red-700 text-[11px]"
+                  >
+                    Clear All
+                  </button>
                 </div>
-                <p className="text-sm font-bold text-slate-800">
-                  Click to select answer books or drag & drop files here
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Standard digitally scanned PDF answer books (.pdf), up to 25 MB per file
-                </p>
-              </div>
 
-              {/* Selected Files List */}
-              {selectedFiles.length > 0 && (
-                <div className="mt-6 space-y-3">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-600 uppercase tracking-wider pb-1 border-b border-slate-100">
-                    <span>Selected Files ({selectedFiles.length})</span>
-                    <span>Status</span>
-                  </div>
-
-                  <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
-                    {selectedFiles.map((file) => (
-                      <div
-                        key={file.id}
-                        className="py-2.5 flex items-center justify-between gap-3 text-xs"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <FileText className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                          <div className="truncate">
-                            <p className="font-semibold text-slate-800 truncate font-mono text-xs">
-                              {file.name}
-                            </p>
-                            <span className="text-[11px] text-slate-400">
-                              {(file.size / 1024).toFixed(0)} KB
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          {file.status === "REJECTED" ? (
-                            <span className="text-red-600 font-semibold flex items-center gap-1">
-                              <AlertCircle className="w-3.5 h-3.5" />
-                              {file.error || "Rejected"}
-                            </span>
-                          ) : (
-                            <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Valid PDF
-                            </span>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeFile(file.id);
-                            }}
-                            className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
-                            title="Remove file"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                  {selectedFiles.map((file) => (
+                    <div key={file.id} className="p-2.5 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 truncate max-w-md">
+                        <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span className="font-medium text-slate-800 truncate">{file.name}</span>
+                        <span className="text-[10px] text-slate-400">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                        {file.status === "REJECTED" && (
+                          <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                            {file.error || "Rejected"}
+                          </span>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Upload Progress Bar if uploading */}
-              {isUploading && (
-                <div className="mt-6 p-4 rounded-lg bg-slate-50 border border-slate-200">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5">
-                    <span>Uploading to Cloudinary & creating sheet records...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  disabled={isUploading}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  onClick={handleStartIngestion}
-                  disabled={isUploading || selectedFiles.length === 0}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Upload className="w-4 h-4" />
-                  {isUploading ? "Ingesting..." : `Ingest ${selectedFiles.length} Answer Books`}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3: BATCH SUMMARY */}
-        {step === 3 && batchSummary && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 sm:p-8 space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Batch Ingestion Completed</h2>
-                <p className="text-xs text-slate-500">
-                  Answer sheets have been verified, anonymized, and stored via Cloudinary abstraction.
-                </p>
-              </div>
-            </div>
-
-            {/* Summary Counters */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-2">
-              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                  Total Files
-                </span>
-                <p className="text-xl font-bold text-slate-900 mt-1">{batchSummary.totalFiles}</p>
-              </div>
-
-              <div className="bg-emerald-50/60 rounded-lg p-3 border border-emerald-200/80">
-                <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">
-                  Successful
-                </span>
-                <p className="text-xl font-bold text-emerald-800 mt-1">{batchSummary.successful}</p>
-              </div>
-
-              <div className="bg-amber-50/60 rounded-lg p-3 border border-amber-200/80">
-                <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">
-                  Duplicates
-                </span>
-                <p className="text-xl font-bold text-amber-800 mt-1">{batchSummary.duplicates}</p>
-              </div>
-
-              <div className="bg-red-50/60 rounded-lg p-3 border border-red-200/80">
-                <span className="text-[11px] font-semibold text-red-700 uppercase tracking-wider">
-                  Failed / Rejected
-                </span>
-                <p className="text-xl font-bold text-red-800 mt-1">
-                  {batchSummary.failed + batchSummary.rejected}
-                </p>
-              </div>
-            </div>
-
-            {/* Batch Status Notice */}
-            <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 text-xs text-blue-900 flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-blue-950">Ready for Document Processing</p>
-                <p className="mt-0.5 text-blue-800 leading-relaxed">
-                  Digital answer books are validated and safely stored in Cloudinary with anonymized identifiers.
-                  Document segmentation and OCR will be initiated in the subsequent processing phase (Phase 8).
-                </p>
-              </div>
-            </div>
-
-            {/* Ingested Results Breakdown */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Ingested Sheets Breakdown
-              </h3>
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden text-xs">
-                {batchSummary.results.map((res, idx) => (
-                  <div key={idx} className="p-3 flex items-center justify-between gap-4 bg-white">
-                    <div className="flex items-center gap-2.5 truncate">
-                      <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                      <span className="font-mono text-slate-700 truncate">{res.name}</span>
+                      <button
+                        onClick={() => removeFile(file.id)}
+                        className="text-slate-400 hover:text-red-600 p-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                      {res.status === "SUCCESS" ? (
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs">
-                            {res.scriptCode}
-                          </span>
-                          <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Ingested
-                          </span>
-                        </div>
-                      ) : res.status === "DUPLICATE" ? (
-                        <span className="text-amber-600 font-semibold flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          Duplicate Checksum
-                        </span>
-                      ) : (
-                        <span className="text-red-600 font-semibold flex items-center gap-1">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          {res.error || "Rejected"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Actions */}
+            {isUploading && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                  <span>Ingesting and storing answer sheets...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => {
-                  setStep(1);
-                  setSelectedFiles([]);
-                  setBatchSummary(null);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                onClick={() => setStep(1)}
+                disabled={isUploading}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800"
               >
-                <RotateCcw className="w-4 h-4" />
-                Create Another Batch
+                Back to Config
               </button>
+              <button
+                type="button"
+                onClick={handleStartIngestion}
+                disabled={selectedFiles.length === 0 || isUploading}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 shadow-xs transition-colors disabled:opacity-50"
+              >
+                <Upload className="w-4 h-4" />
+                <span>{isUploading ? "Uploading..." : `Upload & Ingest ${selectedFiles.length} Sheet(s)`}</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Step 3: Batch Results */
+          <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-xs space-y-6">
+            <div className="text-center space-y-2 pb-4 border-b border-slate-100">
+              <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
+              <h2 className="text-lg font-bold text-slate-900">Intake Batch Ingested Successfully</h2>
+              <p className="text-xs text-slate-500">
+                Batch <strong className="font-mono text-slate-800">{batchSummary?.batchCode}</strong> has been registered into the institutional database.
+              </p>
+            </div>
 
+            <div className="grid grid-cols-4 gap-3 text-center text-xs">
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="font-bold text-base text-slate-900">{batchSummary?.totalFiles}</div>
+                <div className="text-slate-500 text-[10px]">Total Files</div>
+              </div>
+              <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900">
+                <div className="font-bold text-base">{batchSummary?.successful}</div>
+                <div className="text-[10px]">Successful</div>
+              </div>
+              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900">
+                <div className="font-bold text-base">{batchSummary?.duplicates}</div>
+                <div className="text-[10px]">Duplicates</div>
+              </div>
+              <div className="p-3 bg-red-50 rounded-lg border border-red-200 text-red-900">
+                <div className="font-bold text-base">{batchSummary?.failed}</div>
+                <div className="text-[10px]">Failed</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
               <Link
                 href="/admin/scripts"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-xs transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 shadow-xs"
               >
-                View Sheets Directory
-                <ArrowRight className="w-4 h-4" />
+                View Intake Directory
               </Link>
             </div>
           </div>

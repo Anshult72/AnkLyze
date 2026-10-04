@@ -7,6 +7,7 @@ import { AVAILABLE_QUESTIONS } from "@/data/evaluationWorkspaceMockData";
 interface WorkspaceBottomBarProps {
   currentQuestionId: string;
   totalQuestions: number;
+  questions?: Array<{ id: string; status?: string }>;
   onSelectQuestion: (qId: string) => void;
   onPreviousQuestion: () => void;
   onNextQuestion: () => void;
@@ -21,6 +22,7 @@ interface WorkspaceBottomBarProps {
 export default function WorkspaceBottomBar({
   currentQuestionId,
   totalQuestions,
+  questions,
   onSelectQuestion,
   onPreviousQuestion,
   onNextQuestion,
@@ -59,12 +61,13 @@ export default function WorkspaceBottomBar({
     );
   }
 
-  const currentIndex = AVAILABLE_QUESTIONS.findIndex((q) => q.id === currentQuestionId);
+  const effectiveQuestions = questions && questions.length > 0 ? questions : AVAILABLE_QUESTIONS;
+  const currentIndex = effectiveQuestions.findIndex((q) => q.id === currentQuestionId);
   const hasPrevious = currentIndex > 0;
-  const hasNext = currentIndex < AVAILABLE_QUESTIONS.length - 1;
+  const hasNext = currentIndex < effectiveQuestions.length - 1;
 
-  const prevQuestion = hasPrevious ? AVAILABLE_QUESTIONS[currentIndex - 1] : null;
-  const nextQuestion = hasNext ? AVAILABLE_QUESTIONS[currentIndex + 1] : null;
+  const prevQuestion = hasPrevious ? effectiveQuestions[currentIndex - 1] : null;
+  const nextQuestion = hasNext ? effectiveQuestions[currentIndex + 1] : null;
 
   return (
     <footer className="sticky bottom-0 z-30 bg-white border-t border-slate-200/90 shadow-sm py-2.5 px-3 sm:px-6">
@@ -75,7 +78,7 @@ export default function WorkspaceBottomBar({
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mr-1 hidden lg:inline font-mono">
             Questions:
           </span>
-          {AVAILABLE_QUESTIONS.map((q) => {
+          {effectiveQuestions.map((q) => {
             const isActive = q.id === currentQuestionId;
             return (
               <button

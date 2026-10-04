@@ -16,10 +16,10 @@ import {
 import WorkSummary from "./WorkSummary";
 import ProgressSection from "./ProgressSection";
 import RecentActivity from "./RecentActivity";
-import { 
-  EXAMINER_REPORTS_DATA, 
-  ExaminerReportsDataset
+import type { 
+  ExaminerReportsDataset 
 } from "@/data/examinerMockData";
+import { fetchApi } from "@/utils/apiClient";
 import { 
   exportQuestionWiseReportCSV, 
   exportAttentionRiskReportCSV, 
@@ -30,10 +30,36 @@ interface ExaminerReportsViewProps {
   data?: ExaminerReportsDataset;
 }
 
-export default function ExaminerReportsView({ data = EXAMINER_REPORTS_DATA }: ExaminerReportsViewProps) {
+export default function ExaminerReportsView({ data: initialData }: ExaminerReportsViewProps) {
+  const [data, setData] = useState<ExaminerReportsDataset | null>(initialData || null);
+  const [loading, setLoading] = useState<boolean>(!initialData);
+  const [error, setError] = useState<string | null>(null);
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const loadReports = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchApi<ExaminerReportsDataset>("/dashboards/examiner/reports");
+      if (res.success && res.data) {
+        setData(res.data);
+      } else {
+        setError(res.error?.message || "Failed to load reports from server");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to load reports from server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!initialData) {
+      loadReports();
+    }
+  }, [initialData]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -52,18 +78,21 @@ export default function ExaminerReportsView({ data = EXAMINER_REPORTS_DATA }: Ex
   };
 
   const handleExportQuestions = () => {
+    if (!data) return;
     setReportMenuOpen(false);
     exportQuestionWiseReportCSV(data);
     showNotice("Question-wise marking report CSV downloaded.");
   };
 
   const handleExportAttention = () => {
+    if (!data) return;
     setReportMenuOpen(false);
     exportAttentionRiskReportCSV(data);
     showNotice("Attention & risk report CSV downloaded.");
   };
 
   const handleExportActivity = () => {
+    if (!data) return;
     setReportMenuOpen(false);
     exportActivityLogCSV(data);
     showNotice("Evaluation activity log CSV downloaded.");
@@ -74,8 +103,34 @@ export default function ExaminerReportsView({ data = EXAMINER_REPORTS_DATA }: Ex
     setTimeout(() => setDownloadNotice(null), 4000);
   };
 
+  if (loading) {
+    return (
+      <div className="p-16 text-center text-xs text-slate-500 space-y-3 bg-white border border-slate-200/90 rounded-2xl">
+        <div className="w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="font-semibold text-slate-700">Loading batch evaluation intelligence & reports...</p>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="p-12 text-center text-xs text-slate-600 space-y-3 bg-white border border-slate-200 rounded-2xl">
+        <Info className="w-6 h-6 mx-auto text-slate-400" />
+        <p className="font-semibold text-slate-800">{error || "No report data available yet"}</p>
+        <p className="text-slate-500 text-[11px]">Evaluation intelligence generates as scripts are evaluated and finalized.</p>
+        <button
+          onClick={loadReports}
+          className="mt-2 px-3.5 py-1.5 bg-[#062834] text-white hover:bg-[#1a4452] rounded-lg font-medium text-xs shadow-xs"
+        >
+          Refresh Reports
+        </button>
+      </div>
+    );
+  }
+
   const { markingOverview, questions, attentionRisk, workflow, summary, progress, recentActivity } = data;
   const maxBucketCount = Math.max(...markingOverview.markDistribution.map((b) => b.count), 1);
+
 
   return (
     <div className="space-y-7">

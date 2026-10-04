@@ -1,22 +1,105 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronRight, CheckCircle2, AlertTriangle, ShieldAlert, ArrowRight, Clock } from "lucide-react";
-import {
-  INITIAL_INDEPENDENT_EVALUATION_TASKS,
-  IndependentEvaluationTask,
-  IndependentEvaluationStatus,
-  getSheetCode,
-} from "@/data/examinerMockData";
+import { ChevronRight, CheckCircle2, AlertTriangle, ShieldAlert, Clock, RefreshCw } from "lucide-react";
+import { fetchApi } from "@/utils/apiClient";
 import styles from "@/app/examiner/ExaminerPages.module.css";
+
+export type IndependentEvaluationStatus =
+  | "ASSIGNED"
+  | "IN PROGRESS"
+  | "COMPARISON READY"
+  | "AGREED"
+  | "SENT TO MODERATION";
+
+export interface IndependentEvaluationTask {
+  id: string;
+  scriptId: string;
+  questionNumber: string;
+  maxMarks: number;
+  status: IndependentEvaluationStatus;
+  priority: "High" | "Standard";
+  assignedAt: string;
+  reason: string;
+  round1Marks?: number;
+  round2Marks?: number;
+  markDelta?: number;
+  moderationCaseId?: string;
+  disagreeReason?: string;
+}
+
+const getSheetCode = (reference: string) =>
+  reference.replace(/^(?:SCRIPT|SHEET)\s+/i, "").trim();
 
 interface AttentionListProps {
   initialTasks?: IndependentEvaluationTask[];
 }
 
-export default function AttentionList({ initialTasks = INITIAL_INDEPENDENT_EVALUATION_TASKS }: AttentionListProps) {
-  const [tasks, setTasks] = useState<IndependentEvaluationTask[]>(initialTasks);
+export default function AttentionList({ initialTasks }: AttentionListProps) {
+  const [tasks, setTasks] = useState<IndependentEvaluationTask[]>(initialTasks || []);
+  const [loading, setLoading] = useState<boolean>(!initialTasks);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadTasks = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchApi<any[]>("/examiner/my-independent-evaluations");
+      if (res.success && Array.isArray(res.data)) {
+        const mapped: IndependentEvaluationTask[] = res.data.map((item: any) => {
+          let status: IndependentEvaluationStatus = "ASSIGNED";
+          if (item.doubleEvaluationState === "DOUBLE_EVALUATION_AGREEMENT") {
+            status = "AGREED";
+          } else if (item.doubleEvaluationState === "DOUBLE_EVALUATION_DISAGREEMENT") {
+            status = "SENT TO MODERATION";
+          } else if (item.status === "COMPLETED" || item.doubleEvaluationState === "SECOND_EVALUATION_COMPLETED") {
+            status = "COMPARISON READY";
+          } else if (item.status === "IN_PROGRESS") {
+            status = "IN PROGRESS";
+          } else {
+            status = "ASSIGNED";
+          }
+
+          const dateStr = item.assignedAt
+            ? new Date(item.assignedAt).toLocaleDateString("en-IN", {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "Recently";
+
+          return {
+            id: item.id,
+            scriptId: item.scriptId || "UNKNOWN",
+            questionNumber: item.questionNumber || "Q01",
+            maxMarks: item.maxMarks || 10,
+            status,
+            priority: item.maxMarks >= 8 || item.reason?.includes("variance") ? "High" : "Standard",
+            assignedAt: dateStr,
+            reason: item.reason || "Second evaluation required under adaptive double-evaluation policy",
+            round1Marks: item.comparison?.round1Marks,
+            round2Marks: item.comparison?.round2Marks,
+            markDelta: item.comparison?.difference,
+          };
+        });
+        setTasks(mapped);
+      } else {
+        setTasks([]);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to load review queue tasks from server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!initialTasks) {
+      loadTasks();
+    }
+  }, [initialTasks]);
 
   const openTasks = tasks.filter(
     (t) => t.status === "ASSIGNED" || t.status === "IN PROGRESS" || t.status === "COMPARISON READY"
@@ -124,7 +207,6 @@ export default function AttentionList({ initialTasks = INITIAL_INDEPENDENT_EVALU
 
   return (
     <div className={`${styles.dataPanel} bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden`}>
-      
       {/* Header */}
       <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -141,13 +223,22 @@ export default function AttentionList({ initialTasks = INITIAL_INDEPENDENT_EVALU
           </p>
         </div>
 
-        <div className="flex items-center space-x-2 text-xs font-medium text-slate-600">
+        <div className="flex items-center space-x-3 text-xs font-medium text-slate-600">
           <span className="inline-flex items-center px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
             {highPriorityCount} high priority
           </span>
           <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
             {standardPriorityCount} standard
           </span>
+          <button
+            onClick={() => loadTasks()}
+            disabled={loading}
+            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
+            title="Refresh review queue"
+            aria-label="Refresh review queue"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-teal-600" : ""}`} />
+          </button>
         </div>
       </div>
 
@@ -164,7 +255,23 @@ export default function AttentionList({ initialTasks = INITIAL_INDEPENDENT_EVALU
 
       {/* Task List */}
       <div className={styles.reviewGrid}>
-        {tasks.length === 0 ? (
+        {loading ? (
+          <div className="p-12 text-center text-xs text-slate-500 space-y-3">
+            <RefreshCw className="w-6 h-6 animate-spin text-teal-600 mx-auto" />
+            <p className="font-semibold text-slate-700">Loading independent evaluations...</p>
+          </div>
+        ) : error ? (
+          <div className="p-8 text-center text-xs text-rose-600 space-y-2">
+            <AlertTriangle className="w-6 h-6 mx-auto text-rose-500" />
+            <p className="font-semibold">{error}</p>
+            <button
+              onClick={() => loadTasks()}
+              className="mt-2 px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-medium text-xs"
+            >
+              Retry
+            </button>
+          </div>
+        ) : tasks.length === 0 ? (
           <div className="p-8 text-center text-xs text-slate-500 space-y-2">
             <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-5 h-5" />
@@ -240,7 +347,6 @@ export default function AttentionList({ initialTasks = INITIAL_INDEPENDENT_EVALU
                 <div className={styles.reviewActions}>
                   {getActionLink(task)}
                 </div>
-
               </article>
             );
           })
@@ -252,7 +358,6 @@ export default function AttentionList({ initialTasks = INITIAL_INDEPENDENT_EVALU
         <span>Assignment Scope: <strong className="font-mono text-slate-800">Single QuestionAttempt (Blind)</strong></span>
         <span>{openTasks.length} active second evaluations</span>
       </div>
-
     </div>
   );
 }

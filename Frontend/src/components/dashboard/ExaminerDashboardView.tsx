@@ -1,18 +1,70 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
-import {
-  EXAMINER_CONTEXT,
-  WORK_SUMMARY_DATA,
-  getExaminerDashboardModel,
-  getSheetCode,
-} from "@/data/examinerMockData";
+import { ArrowRight, ArrowUpRight, AlertCircle, RefreshCw } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { fetchApi } from "@/utils/apiClient";
 import styles from "@/app/examiner/ExaminerPages.module.css";
 
+const getSheetCode = (reference: string) =>
+  reference ? (reference.includes("-") ? reference : `A-${reference.slice(0, 5)}`) : "A-10001";
+
+interface LiveExaminerDesk {
+  assignedScripts: number;
+  completed: number;
+  pending: number;
+  openReviewCount: number;
+  highPriorityCount: number;
+  todayCompleted: number;
+  todaySinceLastSession: number;
+  aiAcceptanceRate: number;
+  aiAcceptedCount: number;
+  aiOverriddenCount: number;
+  queue: Array<{ id: string; scriptId: string; status: string; isIndependent?: boolean }>;
+  attention: Array<{ questionNumber: string; issueTitle: string; severity: string; scriptId: string }>;
+  recentActivity: Array<{ id: string; time: string; title: string; detail?: string }>;
+}
+
 export default function ExaminerDashboardView() {
-  const desk = getExaminerDashboardModel();
+  const { accessToken, user } = useAuth();
+  const [liveData, setLiveData] = useState<LiveExaminerDesk | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = () => {
+    setIsLoading(true);
+    setError(null);
+    fetchApi<LiveExaminerDesk>("/dashboards/examiner", { token: accessToken })
+      .then((res) => {
+        if (res.success && res.data) {
+          setLiveData(res.data);
+          setError(null);
+        } else {
+          setError(res.error?.message || "Failed to load dashboard data");
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+      })
+      .finally(() => setIsLoading(false));
+  };
+
+
+  useEffect(() => {
+    loadData();
+  }, [accessToken]);
+
+  const assigned = liveData?.assignedScripts ?? 0;
+  const completed = liveData?.completed ?? 0;
+  const pending = liveData?.pending ?? 0;
+  const completionRate = assigned > 0 ? Math.min(100, Math.round((completed / assigned) * 100)) : 0;
+  const openReviews = liveData?.openReviewCount ?? 0;
+  const highPriority = liveData?.highPriorityCount ?? 0;
+  const queueItems = liveData?.queue ?? [];
+  const attentionItems = liveData?.attention ?? [];
+  const recentItems = liveData?.recentActivity ?? [];
+  const nextItem = queueItems[0] || null;
 
   return (
     <>
@@ -20,76 +72,89 @@ export default function ExaminerDashboardView() {
       <header className={styles.dashboardIntro}>
         <div>
           <p className={styles.eyebrow}>
-            {EXAMINER_CONTEXT.session} <span aria-hidden="true">/</span> {EXAMINER_CONTEXT.subjectCode}
+            {user?.department || "Central Evaluation"} <span aria-hidden="true">/</span> {user?.role || "EXAMINER"}
           </p>
           <h1>Your evaluation desk.</h1>
           <p className={styles.introText}>
-            {EXAMINER_CONTEXT.subject} <span aria-hidden="true">·</span> {EXAMINER_CONTEXT.examination}
+            {user?.institution || "Board Examination Center"} <span aria-hidden="true">·</span> Academic Session 2026
           </p>
         </div>
         <div className={styles.heroAction}>
           <Link
             className={styles.primaryLink}
             href={
-              desk.next
-                ? desk.next.status === "Independent Evaluation"
-                  ? `/examiner/evaluate/${getSheetCode(desk.next.scriptId)}?round=2&question=${desk.next.resumeQuestion || desk.next.lastQuestion || "Q04"}`
-                  : `/examiner/evaluate/${getSheetCode(desk.next.scriptId)}`
+              nextItem
+                ? nextItem.isIndependent
+                  ? `/examiner/evaluate/${getSheetCode(nextItem.scriptId)}?round=2&question=Q04`
+                  : `/examiner/evaluate/${getSheetCode(nextItem.scriptId)}`
                 : "/examiner/evaluations"
             }
             id="btn-continue-evaluation"
           >
-            {desk.next ? "Continue evaluation" : "View your queue"}{" "}
+            {nextItem ? "Continue evaluation" : "View your queue"}{" "}
             <ArrowRight size={18} aria-hidden="true" />
           </Link>
-          {desk.next && (
+          {nextItem && (
             <span>
-              Next:{" "}
-              {desk.next.status === "Independent Evaluation"
-                ? `Sheet ${getSheetCode(desk.next.scriptId)} · ${desk.next.resumeQuestion || "Q04"} · Independent Evaluation`
-                : `Sheet ${getSheetCode(desk.next.scriptId)} · ${desk.next.status === "AI Ready" ? "Ready to evaluate" : desk.next.status}`}
+              Next: Sheet {getSheetCode(nextItem.scriptId)} · {nextItem.status}
             </span>
           )}
         </div>
       </header>
+
+      {error && (
+        <div className="mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>Could not load live dashboard data: {error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={loadData}
+            className="px-2.5 py-1 rounded bg-white text-rose-700 font-semibold border border-rose-300 hover:bg-rose-100 flex items-center gap-1"
+          >
+            <RefreshCw className="w-3 h-3" /> Retry
+          </button>
+        </div>
+      )}
 
       {/* 2. TOP 4 STATUS METRICS */}
       <section className={styles.summary} aria-label="Current work status">
         <div className={styles.summaryLead}>
           <span className={styles.overline}>Current batch</span>
           <strong>
-            {WORK_SUMMARY_DATA.completed}
-            <span> / {WORK_SUMMARY_DATA.assignedScripts}</span>
+            {completed}
+            <span> / {assigned}</span>
           </strong>
-          <p>sheets completed · {desk.completion}%</p>
+          <p>sheets completed · {completionRate}%</p>
           <div
             className={styles.progressTrack}
             role="progressbar"
-            aria-valuenow={desk.completion}
+            aria-valuenow={completionRate}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label="Batch completed"
           >
-            <span style={{ width: `${desk.completion}%` }} />
+            <span style={{ width: `${completionRate}%` }} />
           </div>
         </div>
         <Link href="/examiner/evaluations" className={styles.summaryLink}>
           <span className={styles.overline}>Awaiting evaluation</span>
-          <strong>{desk.pending}</strong>
+          <strong>{pending}</strong>
           <span>
             View sheets <ArrowUpRight size={16} aria-hidden="true" />
           </span>
         </Link>
         <Link href="/examiner/review" className={styles.summaryLink}>
           <span className={styles.overline}>Open review items</span>
-          <strong>{desk.openReviewCount}</strong>
+          <strong>{openReviews}</strong>
           <span>
             View reviews <ArrowUpRight size={16} aria-hidden="true" />
           </span>
         </Link>
         <Link href="/examiner/review" className={styles.summaryLink}>
           <span className={styles.overline}>High priority flags</span>
-          <strong>{desk.highPriorityCount}</strong>
+          <strong>{highPriority}</strong>
           <span>
             Inspect flags <ArrowUpRight size={16} aria-hidden="true" />
           </span>
@@ -109,20 +174,16 @@ export default function ExaminerDashboardView() {
               View full queue <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
           </div>
-          {desk.queuePreview.length === 0 ? (
-            <p className={styles.emptyDesk}>
-              {desk.pending === 0
-                ? "No evaluations waiting right now."
-                : "No sheets assigned in this queue yet."}
-            </p>
+          {isLoading ? (
+            <p className={styles.emptyDesk}>Loading assigned queue...</p>
+          ) : queueItems.length === 0 ? (
+            <p className={styles.emptyDesk}>No sheets assigned in this queue yet.</p>
           ) : (
             <div className={styles.queueList}>
-              {desk.queuePreview.map((sheet, index) => {
+              {queueItems.map((sheet, index) => {
                 const code = getSheetCode(sheet.scriptId);
-                const isIndep = sheet.status === "Independent Evaluation";
-                const targetQ = sheet.resumeQuestion || sheet.lastQuestion || "Q04";
-                const evalUrl = isIndep
-                  ? `/examiner/evaluate/${code}?round=2&question=${targetQ}`
+                const evalUrl = sheet.isIndependent
+                  ? `/examiner/evaluate/${code}?round=2&question=Q04`
                   : `/examiner/evaluate/${code}`;
 
                 return (
@@ -133,31 +194,19 @@ export default function ExaminerDashboardView() {
                     <div className={styles.queueIdentity}>
                       {index === 0 && <span className={styles.overline}>Up next</span>}
                       <strong>
-                        {isIndep ? `Sheet ${code} · ${targetQ}` : `Sheet ${code}`}
+                        {sheet.isIndependent ? `Sheet ${code} · Q04` : `Sheet ${code}`}
                       </strong>
                       <span>
-                        {isIndep
+                        {sheet.isIndependent
                           ? "Independent Evaluation · Second evaluation required"
-                          : sheet.status === "In Progress"
-                          ? `${sheet.evaluatedAnswers || 8} of ${sheet.totalAnswers} answers · Resume ${sheet.resumeQuestion || "Q07"}`
-                          : `${sheet.detectedAnswers} of ${sheet.totalAnswers} answers detected`}
-                      </span>
-                    </div>
-                    <div className={styles.queueState}>
-                      <span>
-                        {isIndep
-                          ? "Independent Evaluation"
-                          : sheet.status === "AI Ready"
-                          ? "Ready to evaluate"
                           : sheet.status}
                       </span>
-                      {sheet.riskLevel.includes("High") && <small>High risk</small>}
                     </div>
                     <Link
                       href={evalUrl}
-                      aria-label={`${isIndep ? "Evaluate" : index === 0 ? "Open answer book" : "Open"} for Sheet ${code}`}
+                      aria-label={`${sheet.isIndependent ? "Evaluate" : index === 0 ? "Open answer book" : "Open"} for Sheet ${code}`}
                     >
-                      {isIndep
+                      {sheet.isIndependent
                         ? "Evaluate"
                         : sheet.status === "In Progress"
                         ? "Resume"
@@ -181,22 +230,24 @@ export default function ExaminerDashboardView() {
               <h2 id="dashboard-attention-heading">Needs your attention</h2>
             </div>
           </div>
-          {desk.attentionPreview.length === 0 ? (
+          {isLoading ? (
+            <p className={styles.emptyDesk}>Checking attention flags...</p>
+          ) : attentionItems.length === 0 ? (
             <p className={styles.emptyDesk}>Nothing needs your attention.</p>
           ) : (
             <div className={styles.attentionList}>
-              {desk.attentionPreview.map((item) => (
-                <div className={styles.attentionRow} key={item.id}>
+              {attentionItems.map((item, idx) => (
+                <div className={styles.attentionRow} key={`${item.questionNumber}-${idx}`}>
                   <span className={styles.questionCode}>{item.questionNumber}</span>
                   <div>
                     <strong>{item.issueTitle}</strong>
                     <p>
-                      Sheet {getSheetCode(item.scriptId)} · {item.issueDetail}
+                      Sheet {getSheetCode(item.scriptId)}
                     </p>
                     <span>{item.severity} priority</span>
                   </div>
                   <Link
-                    href={item.href}
+                    href={`/examiner/evaluate/${getSheetCode(item.scriptId)}?round=2&question=${item.questionNumber}`}
                     aria-label={`Review ${item.questionNumber} on Sheet ${getSheetCode(item.scriptId)}`}
                   >
                     <ArrowUpRight size={17} aria-hidden="true" />
@@ -218,28 +269,23 @@ export default function ExaminerDashboardView() {
             <span className={styles.overline}>Workload</span>
             <h2 id="dashboard-today-heading">Today&apos;s progress</h2>
           </div>
-          {desk.today.isSample && (
-            <span className={styles.sampleNote}>
-              Session activity · updated {WORK_SUMMARY_DATA.lastUpdated}
-            </span>
-          )}
         </div>
         <div className={styles.todayDetails}>
           <div>
-            <strong>18</strong>
+            <strong>{liveData?.todayCompleted ?? 0}</strong>
             <span>evaluated today</span>
           </div>
           <div>
-            <strong>+12</strong>
-            <span>since the last session</span>
+            <strong>{liveData?.todaySinceLastSession ?? 0}</strong>
+            <span>since session start</span>
           </div>
           <div>
-            <strong>3h 12m</strong>
-            <span>active evaluation time</span>
+            <strong>{liveData?.openReviewCount ?? 0}</strong>
+            <span>open reviews</span>
           </div>
           <div>
-            <strong>3m 42s</strong>
-            <span>average per sheet</span>
+            <strong>{liveData?.aiAcceptanceRate ?? 0}%</strong>
+            <span>AI consensus rate</span>
           </div>
         </div>
       </section>
@@ -253,19 +299,19 @@ export default function ExaminerDashboardView() {
           <dl className={styles.snapshotList}>
             <div>
               <dt>AI suggestions accepted</dt>
-              <dd>82%</dd>
+              <dd>{liveData?.aiAcceptedCount ?? 0}</dd>
             </div>
             <div>
               <dt>AI suggestions overridden</dt>
-              <dd>18%</dd>
+              <dd>{liveData?.aiOverriddenCount ?? 0}</dd>
             </div>
             <div>
               <dt>Questions sent for review</dt>
-              <dd>4</dd>
+              <dd>{liveData?.openReviewCount ?? 0}</dd>
             </div>
             <div>
-              <dt>Average evaluation time</dt>
-              <dd>3m 42s</dd>
+              <dt>Consensus acceptance rate</dt>
+              <dd>{liveData?.aiAcceptanceRate ?? 0}%</dd>
             </div>
           </dl>
           <Link className={styles.sectionFooterLink} href="/examiner/reports">
@@ -276,20 +322,18 @@ export default function ExaminerDashboardView() {
         <section className={styles.supportSection} aria-labelledby="dashboard-activity-heading">
           <span className={styles.overline}>Latest changes</span>
           <h2 id="dashboard-activity-heading">Recent activity</h2>
-          {desk.recentActivity.length === 0 ? (
+          {isLoading ? (
+            <p className={styles.emptyDesk}>Loading activity...</p>
+          ) : recentItems.length === 0 ? (
             <p className={styles.emptyDesk}>No recent evaluation activity.</p>
           ) : (
             <ol className={styles.activityList}>
-              {desk.recentActivity.map((event) => (
+              {recentItems.map((event) => (
                 <li key={event.id}>
-                  <time>{event.time ?? event.timestamp}</time>
+                  <time>{event.time}</time>
                   <div>
-                    {event.href ? (
-                      <Link href={event.href}>{event.title}</Link>
-                    ) : (
-                      <strong>{event.title}</strong>
-                    )}
-                    <p>{event.detail ?? event.description}</p>
+                    <strong>{event.title}</strong>
+                    {event.detail && <p>{event.detail}</p>}
                   </div>
                 </li>
               ))}

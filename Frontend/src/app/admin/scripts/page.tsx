@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,31 +18,102 @@ import {
   ChevronRight,
   Eye,
   Hash,
+  RefreshCw,
 } from "lucide-react";
 import TopNavigation from "@/components/examiner/TopNavigation";
 import { useAuth } from "@/context/AuthContext";
-import {
-  MOCK_SCRIPT_BATCHES,
-  MOCK_ANSWER_SCRIPTS,
-  MOCK_EXAMS,
-  AnswerScriptData,
-} from "@/data/examManagementMockData";
+import { fetchApi } from "@/utils/apiClient";
+
+interface LiveAnswerScript {
+  id: string;
+  scriptCode: string;
+  originalFilename: string;
+  checksum: string;
+  barcodeValue?: string;
+  status: string;
+  pageCount: number;
+  totalQuestionsDetected: number;
+  batchCode: string;
+  examId: string;
+  examTitle: string;
+  subjectId: string;
+  subjectName: string;
+  subjectCode: string;
+  reconstructionStatus?: string;
+  createdAt: string;
+}
 
 export default function ScriptDirectoryPage() {
   const { user } = useAuth();
   const router = useRouter();
+
+  const [scripts, setScripts] = useState<LiveAnswerScript[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
+  const [exams, setExams] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedExamId, setSelectedExamId] = useState("all");
   const [selectedSubjectId, setSelectedSubjectId] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
 
-  const isAdminOrHead =
-    user?.role === "SUPER_ADMIN" || user?.role === "HEAD_EXAMINER";
+  const isAdminOrHead = user?.role === "SUPER_ADMIN" || user?.role === "HEAD_EXAMINER";
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [scriptsRes, batchesRes, examsRes] = await Promise.all([
+        fetchApi<any[]>("/scripts?limit=100"),
+        fetchApi<any[]>("/script-batches").catch(() => ({ success: true, data: [] })),
+        fetchApi<any[]>("/exams").catch(() => ({ success: true, data: [] })),
+      ]);
+
+      if (scriptsRes.success && Array.isArray(scriptsRes.data)) {
+        const mapped: LiveAnswerScript[] = scriptsRes.data.map((item: any) => ({
+          id: item.id,
+          scriptCode: item.scriptCode || `SCRIPT-${item.id.slice(0, 6)}`,
+          originalFilename: item.originalFilename || "uploaded_sheet.pdf",
+          checksum: item.checksum || "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          barcodeValue: item.barcodeValue,
+          status: item.status || "VALIDATED",
+          pageCount: item.pageCount || 1,
+          totalQuestionsDetected: item.totalQuestionsDetected || item.pageCount || 1,
+          batchCode: item.batch?.batchCode || "BATCH-01",
+          examId: item.examId || item.exam?.id || "",
+          examTitle: item.exam?.title || "Board Examination 2026",
+          subjectId: item.subjectId || item.subject?.id || "",
+          subjectName: item.subject?.name || "Subject Examination",
+          subjectCode: item.subject?.code || "SUB-01",
+          reconstructionStatus: item.reconstructionStatus,
+          createdAt: item.createdAt,
+        }));
+        setScripts(mapped);
+      } else {
+        setScripts([]);
+      }
+
+      if (batchesRes.success && Array.isArray(batchesRes.data)) {
+        setBatches(batchesRes.data);
+      }
+      if (examsRes.success && Array.isArray(examsRes.data)) {
+        setExams(examsRes.data);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to load intake scripts from server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   // Filtered scripts
   const filteredScripts = useMemo(() => {
-    return MOCK_ANSWER_SCRIPTS.filter((script) => {
+    return scripts.filter((script) => {
       if (selectedExamId !== "all" && script.examId !== selectedExamId) {
         return false;
       }
@@ -64,13 +135,13 @@ export default function ScriptDirectoryPage() {
       }
       return true;
     });
-  }, [selectedExamId, selectedSubjectId, selectedStatus, searchQuery]);
+  }, [scripts, selectedExamId, selectedSubjectId, selectedStatus, searchQuery]);
 
   // Derived metrics
-  const totalScriptsCount = MOCK_ANSWER_SCRIPTS.length;
-  const totalBatchesCount = MOCK_SCRIPT_BATCHES.length;
-  const readyCount = MOCK_ANSWER_SCRIPTS.filter(
-    (s) => s.status === "READY_FOR_PROCESSING"
+  const totalScriptsCount = scripts.length;
+  const totalBatchesCount = batches.length;
+  const readyCount = scripts.filter(
+    (s) => s.status === "READY_FOR_PROCESSING" || s.status === "VALIDATED"
   ).length;
 
   if (!isAdminOrHead) {
@@ -124,7 +195,7 @@ export default function ScriptDirectoryPage() {
                   Answer Sheet Intake
                 </h1>
                 <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                  Cloudinary Active
+                  Storage Active
                 </span>
               </div>
               <p className="mt-1 text-sm text-slate-600">
@@ -133,6 +204,15 @@ export default function ScriptDirectoryPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={loadData}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 text-slate-700 text-xs font-medium bg-white hover:bg-slate-50 shadow-2xs transition-colors"
+                title="Refresh Intake Directory"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-blue-600" : ""}`} />
+                <span>Refresh</span>
+              </button>
               <Link
                 href="/admin/scripts/new"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-xs transition-colors"
@@ -184,7 +264,7 @@ export default function ScriptDirectoryPage() {
               </div>
               <p className="text-sm font-bold text-slate-900 mt-1.5 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                Cloudinary Storage
+                Integrated Storage
               </p>
             </div>
           </div>
@@ -199,7 +279,7 @@ export default function ScriptDirectoryPage() {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by Sheet ID (e.g. A-10492), file, or batch..."
+              placeholder="Search by Sheet ID, file, or batch..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -219,9 +299,9 @@ export default function ScriptDirectoryPage() {
               className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             >
               <option value="all">All Examinations</option>
-              {MOCK_EXAMS.map((exam) => (
-                <option key={exam.id} value={exam.id}>
-                  {exam.code}
+              {exams.map((ex) => (
+                <option key={ex.id} value={ex.id}>
+                  {ex.title}
                 </option>
               ))}
             </select>
@@ -233,157 +313,105 @@ export default function ScriptDirectoryPage() {
               className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             >
               <option value="all">All Statuses</option>
-              <option value="READY_FOR_PROCESSING">Ready for Processing</option>
               <option value="VALIDATED">Validated</option>
-              <option value="UPLOADING">Uploading</option>
-              <option value="FAILED">Failed</option>
+              <option value="READY_FOR_PROCESSING">Ready for Processing</option>
+              <option value="PROCESSING">Processing</option>
               <option value="REJECTED">Rejected</option>
             </select>
           </div>
         </div>
 
-        {/* Answer Scripts Table */}
+        {/* Scripts Table */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Ingested Answer Sheets</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Showing {filteredScripts.length} of {totalScriptsCount} total answer books
+          {loading ? (
+            <div className="p-16 text-center text-xs text-slate-500 space-y-3">
+              <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto" />
+              <p className="font-semibold text-slate-700">Loading intake directory from server...</p>
+            </div>
+          ) : error ? (
+            <div className="p-12 text-center text-xs text-rose-600 space-y-3">
+              <AlertTriangle className="w-6 h-6 mx-auto text-rose-500" />
+              <p className="font-semibold text-slate-800">{error}</p>
+              <button
+                onClick={loadData}
+                className="px-3.5 py-1.5 bg-[#062834] text-white hover:bg-[#1a4452] rounded-lg font-medium text-xs"
+              >
+                Retry
+              </button>
+            </div>
+          ) : filteredScripts.length === 0 ? (
+            <div className="p-16 text-center text-xs text-slate-500 space-y-3">
+              <FileText className="w-10 h-10 text-slate-300 mx-auto" />
+              <h3 className="text-sm font-semibold text-slate-800">No Answer Sheets Ingested</h3>
+              <p className="text-slate-500 max-w-sm mx-auto">
+                No answer sheets match your current filters. Start a new intake batch to ingest digitized candidate answer books.
               </p>
+              <Link
+                href="/admin/scripts/new"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 shadow-xs"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Upload Answer Sheets
+              </Link>
             </div>
-            <div className="text-xs text-slate-500 flex items-center gap-1 font-mono">
-              <Shield className="w-3.5 h-3.5 text-blue-600" />
-              <span>Student anonymity strictly enforced</span>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-                <tr>
-                  <th scope="col" className="px-6 py-3.5">
-                    Sheet ID
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Exam & Subject
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Intake Batch
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Pages / Size
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Checksum (SHA-256)
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3.5 text-right">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-slate-700">
-                {filteredScripts.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                      <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      <p className="font-semibold text-slate-700">No answer sheets found</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Try modifying search query or start a new intake batch.
-                      </p>
-                    </td>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                    <th className="px-4 py-3">Sheet Identity</th>
+                    <th className="px-4 py-3">Exam / Subject</th>
+                    <th className="px-4 py-3">Batch</th>
+                    <th className="px-4 py-3 text-center">Pages</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
-                ) : (
-                  filteredScripts.map((script) => (
-                    <tr key={script.id} className="hover:bg-slate-50/80 transition-colors">
-                      {/* Anonymized Script ID */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/80 text-xs">
-                            {script.scriptCode}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-1 font-mono truncate max-w-[150px]">
-                          {script.originalFilename}
-                        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {filteredScripts.map((script) => (
+                    <tr key={script.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-mono font-bold text-slate-900">{script.scriptCode}</div>
+                        <div className="text-[11px] text-slate-500 truncate max-w-xs">{script.originalFilename}</div>
                       </td>
-
-                      {/* Exam & Subject */}
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-900 text-xs sm:text-sm">
-                          {script.subjectCode}: {script.subjectName}
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5">{script.examCode}</div>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-slate-800">{script.subjectName}</div>
+                        <div className="text-[11px] font-mono text-slate-500">{script.examTitle}</div>
                       </td>
-
-                      {/* Batch */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                          {script.batchCode}
+                      <td className="px-4 py-3 font-mono text-slate-600">
+                        {script.batchCode}
+                      </td>
+                      <td className="px-4 py-3 text-center font-mono font-semibold text-slate-700">
+                        {script.pageCount}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            script.status === "VALIDATED" || script.status === "READY_FOR_PROCESSING"
+                              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                              : script.status === "PROCESSING"
+                              ? "bg-blue-50 text-blue-800 border border-blue-200"
+                              : "bg-rose-50 text-rose-800 border border-rose-200"
+                          }`}
+                        >
+                          {script.status}
                         </span>
                       </td>
-
-                      {/* Pages and Size */}
-                      <td className="px-6 py-4 whitespace-nowrap text-xs">
-                        <div className="font-medium text-slate-900">{script.pageCount} pages</div>
-                        <div className="text-slate-400 mt-0.5">
-                          {(script.fileSize / 1024).toFixed(0)} KB
-                        </div>
-                      </td>
-
-                      {/* Checksum */}
-                      <td className="px-6 py-4 whitespace-nowrap text-xs font-mono">
-                        <div
-                          className="flex items-center gap-1 text-slate-600 max-w-[120px] truncate"
-                          title={script.checksum}
-                        >
-                          <Hash className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                          <span className="truncate">{script.checksum.substring(0, 12)}...</span>
-                        </div>
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {script.status === "READY_FOR_PROCESSING" ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            Ready for Processing
-                          </span>
-                        ) : script.status === "VALIDATED" ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                            Validated
-                          </span>
-                        ) : script.status === "REJECTED" ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                            Rejected
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                            {script.status}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Action */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-4 py-3 text-right">
                         <Link
-                          href={`/admin/scripts/${script.id}`}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-colors"
+                          href={`/examiner/evaluate/${script.scriptCode}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition-colors"
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          Detail
+                          <Eye className="w-3 h-3" />
+                          <span>Inspect</span>
                         </Link>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
     </div>

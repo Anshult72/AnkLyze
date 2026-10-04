@@ -1,13 +1,77 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Scale, ShieldAlert, FileCheck2, Clock } from "lucide-react";
-import { HEAD_EXAMINER_DASHBOARD_DATA } from "@/data/dashboardRoleMockData";
+import { ArrowRight, ArrowUpRight, Scale, ShieldAlert, FileCheck2, Clock, AlertCircle, RefreshCw } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { fetchApi } from "@/utils/apiClient";
 import styles from "@/app/examiner/ExaminerPages.module.css";
 
+interface LiveHeadExaminerData {
+  assignedScripts: number;
+  evaluated: number;
+  pending: number;
+  needsModeration: number;
+  completionRate: number;
+  oversight: {
+    moderationCasesCount: number;
+    criticalRiskCount: number;
+    secondEvaluationsPendingCount: number;
+    unresolvedDisagreementsCount: number;
+    items: Array<{ id: string; category: string; severity: string; title: string }>;
+  };
+  moderationSummary: {
+    open: number;
+    inReview: number;
+    resolvedToday: number;
+    oldestUnresolvedMinutes: number;
+  };
+  resultReadiness: {
+    evaluationCoverage: number;
+    questionsAwaitingFinalDecision: number;
+    validationBlockers: number;
+    status: string;
+  };
+  recentActivity: Array<{ id: string; time: string; title: string }>;
+}
+
 export default function HeadExaminerDashboardView() {
-  const data = HEAD_EXAMINER_DASHBOARD_DATA;
+  const { accessToken } = useAuth();
+  const [data, setData] = useState<LiveHeadExaminerData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = () => {
+    setIsLoading(true);
+    setError(null);
+    fetchApi<LiveHeadExaminerData>("/dashboards/head-examiner", { token: accessToken })
+      .then((res) => {
+        if (res.success && res.data) {
+          setData(res.data);
+          setError(null);
+        } else {
+          setError(res.error?.message || "Failed to load dashboard data");
+        }
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+      })
+      .finally(() => setIsLoading(false));
+  };
+
+
+  useEffect(() => {
+    loadData();
+  }, [accessToken]);
+
+  const assigned = data?.assignedScripts ?? 0;
+  const evaluated = data?.evaluated ?? 0;
+  const pending = data?.pending ?? 0;
+  const completionRate = data?.completionRate ?? 0;
+  const moderationCount = data?.oversight?.moderationCasesCount ?? 0;
+  const secondEvalPending = data?.oversight?.secondEvaluationsPendingCount ?? 0;
+  const oversightItems = data?.oversight?.items ?? [];
+  const activityItems = data?.recentActivity ?? [];
 
   return (
     <>
@@ -15,11 +79,11 @@ export default function HeadExaminerDashboardView() {
       <header className={styles.dashboardIntro}>
         <div>
           <p className={styles.eyebrow}>
-            {data.session} <span aria-hidden="true">/</span> {data.subjectCode}
+            ACADEMIC OVERSIGHT <span aria-hidden="true">/</span> INSTITUTIONAL DESK
           </p>
           <h1>Examination overview.</h1>
           <p className={styles.introText}>
-            {data.subject} <span aria-hidden="true">·</span> {data.examination}
+            All Ingested Examination Operations &amp; Evaluation Cohorts
           </p>
         </div>
         <div className={styles.heroAction}>
@@ -31,245 +95,192 @@ export default function HeadExaminerDashboardView() {
             Review priority work <ArrowRight size={18} aria-hidden="true" />
           </Link>
           <span>
-            Oversight: {data.oversight.moderationCasesCount} Moderation Cases ·{" "}
-            {data.oversight.secondEvaluationsPendingCount} Second Evaluations Pending
+            Oversight: {moderationCount} Moderation Cases ·{" "}
+            {secondEvalPending} Second Evaluations Pending
           </span>
         </div>
       </header>
+
+      {error && (
+        <div className="mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>Could not load live dashboard data: {error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={loadData}
+            className="px-2.5 py-1 rounded bg-white text-rose-700 font-semibold border border-rose-300 hover:bg-rose-100 flex items-center gap-1"
+          >
+            <RefreshCw className="w-3 h-3" /> Retry
+          </button>
+        </div>
+      )}
 
       {/* 2. TOP 4 INSTITUTIONAL STATUS METRICS */}
       <section className={styles.summary} aria-label="Institutional examination status">
         <div className={styles.summaryLead}>
           <span className={styles.overline}>Assigned scripts</span>
           <strong>
-            {data.summary.evaluated}
-            <span> / {data.summary.assignedScripts}</span>
+            {evaluated}
+            <span> / {assigned}</span>
           </strong>
-          <p>evaluated cohort · {data.summary.completionRate}% complete</p>
+          <p>evaluated cohort · {completionRate}% complete</p>
           <div
             className={styles.progressTrack}
             role="progressbar"
-            aria-valuenow={data.summary.completionRate}
+            aria-valuenow={completionRate}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label="Evaluation completed"
           >
-            <span style={{ width: `${data.summary.completionRate}%` }} />
+            <span style={{ width: `${completionRate}%` }} />
           </div>
-        </div>
-
-        <div className={styles.summaryLink}>
-          <span className={styles.overline}>Evaluated scripts</span>
-          <strong>{data.summary.evaluated}</strong>
-          <span>Cohort progress: 77%</span>
         </div>
 
         <Link href="/examiner/evaluations" className={styles.summaryLink}>
           <span className={styles.overline}>Pending evaluation</span>
-          <strong>{data.summary.pending}</strong>
+          <strong>{pending}</strong>
           <span>
-            Active desks <ArrowUpRight size={16} aria-hidden="true" />
+            Inspect backlog <ArrowUpRight size={16} aria-hidden="true" />
           </span>
         </Link>
 
         <Link href="/moderation" className={styles.summaryLink}>
-          <span className={styles.overline}>Needs moderation</span>
-          <strong>{data.summary.needsModeration}</strong>
+          <span className={styles.overline}>Requires moderation</span>
+          <strong>{moderationCount}</strong>
           <span>
-            Open disputes <ArrowUpRight size={16} aria-hidden="true" />
+            Open cases <ArrowUpRight size={16} aria-hidden="true" />
+          </span>
+        </Link>
+
+        <Link href="/admin/results" className={styles.summaryLink}>
+          <span className={styles.overline}>Result readiness</span>
+          <strong>{data?.resultReadiness?.status || (assigned === 0 ? "Empty" : "In Progress")}</strong>
+          <span>
+            View results <ArrowUpRight size={16} aria-hidden="true" />
           </span>
         </Link>
       </section>
 
-      {/* 3. WORK GRID: NEEDS OVERSIGHT + MODERATION SUMMARY */}
+      {/* 3. WORK GRID: OVERSIGHT QUEUE & MODERATION SUMMARY */}
       <div className={styles.workGrid}>
         {/* NEEDS OVERSIGHT */}
         <section className={styles.workSection} aria-labelledby="dashboard-oversight-heading">
           <div className={styles.workHeading}>
             <div>
-              <span className={styles.overline}>Institutional oversight</span>
+              <span className={styles.overline}>Attention required</span>
               <h2 id="dashboard-oversight-heading">Needs oversight</h2>
             </div>
             <Link href="/moderation">
-              Open Moderation Desk <ArrowUpRight size={16} aria-hidden="true" />
+              View all moderation <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
           </div>
-
-          <div className={styles.queueList}>
-            {data.oversight.items.map((item) => (
-              <div className={styles.queueRow} key={item.id}>
-                <div className={styles.queueIdentity}>
-                  <div className="flex items-center space-x-2">
+          {isLoading ? (
+            <p className={styles.emptyDesk}>Loading oversight items...</p>
+          ) : oversightItems.length === 0 ? (
+            <p className={styles.emptyDesk}>No active moderation cases or critical flags requiring immediate oversight.</p>
+          ) : (
+            <div className={styles.queueList}>
+              {oversightItems.map((item) => (
+                <div className={styles.queueRow} key={item.id}>
+                  <div className={styles.queueIdentity}>
                     <span className={styles.overline}>{item.category}</span>
-                    <span className="text-slate-300">•</span>
-                    <span
-                      className={`text-[11px] font-bold ${
-                        item.severity === "Critical"
-                          ? "text-rose-700"
-                          : item.severity === "High"
-                          ? "text-amber-700"
-                          : "text-slate-600"
-                      }`}
-                    >
-                      {item.severity} priority
-                    </span>
+                    <strong>{item.title}</strong>
+                    <span>{item.severity} severity priority</span>
                   </div>
-                  <strong>{item.title}</strong>
-                  <span>{item.detail}</span>
+                  <Link href="/moderation" aria-label={`Inspect ${item.title}`}>
+                    Inspect <ArrowRight size={16} aria-hidden="true" />
+                  </Link>
                 </div>
-                <div className={styles.queueState}>
-                  <span>{item.category}</span>
-                </div>
-                <Link href={item.href} aria-label={`${item.actionText} for ${item.title}`}>
-                  {item.actionText} <ArrowRight size={16} aria-hidden="true" />
-                </Link>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
-        {/* MODERATION SUMMARY */}
-        <section className={styles.workSection} aria-labelledby="dashboard-moderation-summary-heading">
+        {/* MODERATION SUMMARY PANEL */}
+        <section className={styles.workSection} aria-labelledby="dashboard-modsum-heading">
           <div className={styles.workHeading}>
             <div>
-              <span className={styles.overline}>Dispute resolution</span>
-              <h2 id="dashboard-moderation-summary-heading">Moderation summary</h2>
+              <span className={styles.overline}>Quality control</span>
+              <h2 id="dashboard-modsum-heading">Moderation summary</h2>
             </div>
             <Link href="/moderation">
-              All cases <ArrowUpRight size={16} aria-hidden="true" />
+              Manage queue <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
           </div>
-
-          <div className="p-5 bg-[#fffefa] border border-[#d5e1db] rounded-xl space-y-4 shadow-2xs mt-4">
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="p-3 bg-[#f8faf9] rounded-lg border border-[#e2ece7]">
-                <span className="block text-[11px] font-bold uppercase text-[#5b7778] tracking-wider">
-                  Open Cases
-                </span>
-                <span className="block text-2xl font-serif text-[#062834] mt-1">
-                  {data.moderationSummary.open}
-                </span>
-                <span className="text-[11px] text-[#617579]">Requiring review</span>
-              </div>
-
-              <div className="p-3 bg-[#f8faf9] rounded-lg border border-[#e2ece7]">
-                <span className="block text-[11px] font-bold uppercase text-[#5b7778] tracking-wider">
-                  In Review
-                </span>
-                <span className="block text-2xl font-serif text-[#062834] mt-1">
-                  {data.moderationSummary.inReview}
-                </span>
-                <span className="text-[11px] text-[#617579]">Being examined</span>
+          <div className={styles.attentionList}>
+            <div className={styles.attentionRow}>
+              <Scale className="text-amber-700" size={20} />
+              <div>
+                <strong>{data?.moderationSummary?.open ?? 0} cases open</strong>
+                <p>Awaiting senior reviewer assignment or resolution</p>
+                <span>Active quality queue</span>
               </div>
             </div>
-
-            <dl className={styles.snapshotList} style={{ margin: "12px 0 0" }}>
+            <div className={styles.attentionRow}>
+              <ShieldAlert className="text-rose-700" size={20} />
               <div>
-                <dt>Resolved today</dt>
-                <dd>{data.moderationSummary.resolvedToday} cases</dd>
+                <strong>{data?.oversight?.criticalRiskCount ?? 0} critical risk flags</strong>
+                <p>Disagreements exceeding standard tolerance</p>
+                <span>High priority</span>
               </div>
+            </div>
+            <div className={styles.attentionRow}>
+              <FileCheck2 className="text-emerald-700" size={20} />
               <div>
-                <dt>Oldest unresolved dispute</dt>
-                <dd>{data.moderationSummary.oldestUnresolvedMinutes} min</dd>
+                <strong>{data?.moderationSummary?.resolvedToday ?? 0} resolved today</strong>
+                <p>Decisions finalized and archived</p>
+                <span>Quality record</span>
               </div>
-              <div>
-                <dt>Second evaluations pending</dt>
-                <dd>{data.oversight.secondEvaluationsPendingCount} allocated</dd>
-              </div>
-              <div>
-                <dt>Unresolved mark deltas</dt>
-                <dd>{data.oversight.unresolvedDisagreementsCount} cases</dd>
-              </div>
-            </dl>
-
-            <Link className={styles.sectionFooterLink} href="/moderation">
-              Open Moderation Queue <ArrowRight size={16} aria-hidden="true" />
-            </Link>
+            </div>
           </div>
         </section>
       </div>
 
-      {/* 4. EVALUATION PROGRESS & COHORT BREAKDOWN */}
-      <section className={styles.todaySection} aria-labelledby="dashboard-cohort-heading">
-        <div className={styles.todayHeading}>
-          <div>
-            <span className={styles.overline}>Examination Progress</span>
-            <h2 id="dashboard-cohort-heading">Evaluation progress</h2>
-          </div>
-          <span className={styles.sampleNote}>
-            92 / 120 completed · 77% cohort progress
-          </span>
-        </div>
-        <div className={styles.todayDetails}>
-          <div>
-            <strong>3</strong>
-            <span>critical risk evaluations</span>
-          </div>
-          <div>
-            <strong>4</strong>
-            <span>second evaluations pending</span>
-          </div>
-          <div>
-            <strong>6</strong>
-            <span>moderation cases</span>
-          </div>
-          <div>
-            <strong>2</strong>
-            <span>unresolved disagreements</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. RESULT READINESS + INSTITUTIONAL RECENT ACTIVITY */}
+      {/* 4. RESULT READINESS & RECENT ACTIVITY */}
       <div className={styles.lowerGrid}>
-        <section className={styles.supportSection} aria-labelledby="dashboard-readiness-heading">
-          <span className={styles.overline}>Sign-off & Publishing</span>
-          <h2 id="dashboard-readiness-heading">Result readiness</h2>
-          <p>Institutional result publication criteria for CS-301 Winter Session.</p>
+        <section className={styles.supportSection} aria-labelledby="dashboard-resread-heading">
+          <span className={styles.overline}>Institutional publication</span>
+          <h2 id="dashboard-resread-heading">Result readiness</h2>
+          <p>Results cannot be approved until all evaluations and verifications pass.</p>
           <dl className={styles.snapshotList}>
             <div>
-              <dt>Evaluation coverage</dt>
-              <dd>{data.resultReadiness.evaluationCoverage}%</dd>
+              <dt>Evaluation cohort coverage</dt>
+              <dd>{completionRate}%</dd>
             </div>
             <div>
-              <dt>Questions awaiting final decision</dt>
-              <dd>{data.resultReadiness.questionsAwaitingFinalDecision}</dd>
+              <dt>Awaiting final decision</dt>
+              <dd>{pending} scripts</dd>
             </div>
             <div>
-              <dt>Validation blockers</dt>
-              <dd className="text-amber-800 font-bold">
-                {data.resultReadiness.validationBlockers} issues
-              </dd>
+              <dt>Active validation blockers</dt>
+              <dd>{data?.resultReadiness?.validationBlockers ?? 0}</dd>
             </div>
             <div>
-              <dt>Readiness status</dt>
-              <dd className="text-amber-900 font-semibold">
-                {data.resultReadiness.status}
-              </dd>
+              <dt>Publication readiness</dt>
+              <dd>{data?.resultReadiness?.status ?? (assigned === 0 ? "Empty" : "In Progress")}</dd>
             </div>
           </dl>
           <Link className={styles.sectionFooterLink} href="/admin/results">
-            Review results & blockers <ArrowRight size={16} aria-hidden="true" />
+            View examination results <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </section>
 
-        <section className={styles.supportSection} aria-labelledby="dashboard-institutional-activity-heading">
-          <span className={styles.overline}>Audit timeline</span>
-          <h2 id="dashboard-institutional-activity-heading">Institutional recent activity</h2>
-          {data.recentActivity.length === 0 ? (
-            <p className={styles.emptyDesk}>No recent institutional activity.</p>
+        <section className={styles.supportSection} aria-labelledby="dashboard-activity-heading">
+          <span className={styles.overline}>Supervisory log</span>
+          <h2 id="dashboard-activity-heading">Recent activity</h2>
+          {isLoading ? (
+            <p className={styles.emptyDesk}>Loading activity...</p>
+          ) : activityItems.length === 0 ? (
+            <p className={styles.emptyDesk}>No recent oversight activity.</p>
           ) : (
             <ol className={styles.activityList}>
-              {data.recentActivity.map((event) => (
+              {activityItems.map((event) => (
                 <li key={event.id}>
                   <time>{event.time}</time>
                   <div>
-                    {event.href ? (
-                      <Link href={event.href}>{event.title}</Link>
-                    ) : (
-                      <strong>{event.title}</strong>
-                    )}
-                    <p>{event.detail}</p>
+                    <strong>{event.title}</strong>
                   </div>
                 </li>
               ))}

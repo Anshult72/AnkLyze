@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import TopNavigation from "@/components/examiner/TopNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import {
-  INITIAL_EXAMS,
-  AVAILABLE_ACADEMIC_EXAMINERS,
   ExamData,
   SubjectData,
   QuestionData,
@@ -19,7 +17,6 @@ import {
   RubricQuestionData,
   RubricCriterionData,
   RubricIssueData,
-  INITIAL_RUBRIC_ANALYSES,
 } from "@/data/examManagementMockData";
 import {
   ArrowLeft,
@@ -61,6 +58,27 @@ type LiveQuestion = Omit<RubricQuestionData, "specialInstructions" | "criteria" 
 const rawBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
 const API_BASE_URL = rawBaseUrl.endsWith("/api/v1") ? rawBaseUrl : `${rawBaseUrl}/api/v1`;
 
+async function apiRequest<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, credentials: "include",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...options.headers } });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload?.success) throw new Error(payload?.error?.message || `Request failed (HTTP ${response.status})`);
+  return payload.data as T;
+}
+
+function normalizeRubric(raw: Omit<RubricAnalysisData, "questions"> & { questions?: LiveQuestion[]; issues?: RubricIssueData[] }): RubricAnalysisData {
+  return { ...raw, questions: (raw.questions || []).map((question) => ({
+    ...question, questionText: question.questionText || "", maximumMarks: question.maximumMarks || 0,
+    specialInstructions: question.specialInstructions ? [question.specialInstructions] : [],
+    isReviewRequired: !question.isBalanced,
+    issues: (raw.issues || []).filter((issue) => issue.questionNumber === question.questionNumber),
+    criteria: (question.criteria || []).map((criterion) => ({ ...criterion,
+      description: criterion.description || "", isHumanModified: !!criterion.isHumanModified,
+      originalAiValue: typeof criterion.originalAiValue === "string" ? JSON.parse(criterion.originalAiValue) : criterion.originalAiValue,
+    })),
+  })), issues: raw.issues || [] };
+}
+
 export default function ExamWorkbenchPage() {
   const { accessToken } = useAuth();
   const params = useParams();
@@ -81,6 +99,7 @@ export default function ExamWorkbenchPage() {
 
   // Active subject selection for Questions, Marking Scheme, and Examiner tabs
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
+  const [availableExaminers, setAvailableExaminers] = useState<Array<{ id: string; fullName: string; email: string; department?: string; institution?: string; status?: string }>>([]);
 
   // Modals & form state
   const [isAddSubjectModalOpen, setIsAddSubjectModalOpen] = useState(false);
@@ -108,9 +127,7 @@ export default function ExamWorkbenchPage() {
   const [selectedExaminerIdToAssign, setSelectedExaminerIdToAssign] = useState("");
 
   // Phase 6: AI Rubric Engine State
-  const [rubricAnalysesMap, setRubricAnalysesMap] = useState<Record<string, RubricAnalysisData[]>>(
-    process.env.NODE_ENV === 'production' ? {} : INITIAL_RUBRIC_ANALYSES
-  );
+  const [rubricAnalysesMap, setRubricAnalysesMap] = useState<Record<string, RubricAnalysisData[]>>({});
   const [selectedRubricVersion, setSelectedRubricVersion] = useState<number>(1);
   const [isAnalyzingRubric, setIsAnalyzingRubric] = useState(false);
   const [rubricViewMode, setRubricViewMode] = useState<"ai-review" | "human-source" | "compare">("ai-review");
@@ -133,57 +150,42 @@ export default function ExamWorkbenchPage() {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReasonText, setRejectReasonText] = useState("");
 
-  // Load exam
+  const reloadExam = useCallback(async () => {
+    if (!accessToken || !rawExamId) return;
+    const record = await apiRequest<ExamData>(`/exams/${rawExamId}`, accessToken);
+    const subjects = await Promise.all((record.subjects || []).map(async (summary) => {
+      const detail = await apiRequest<SubjectData & { assignments?: Array<{
+        id: string; examinerId: string; examiner?: { fullName: string; email: string; department?: string; institution?: string }; status: string; createdAt: string;
+      }> }>(`/subjects/${summary.id}`, accessToken);
+      return { ...detail, questions: detail.questions || [], markingSchemes: detail.markingSchemes || [],
+        assignedExaminers: (detail.assignments || []).map((assignment) => ({
+          id: assignment.id, examinerId: assignment.examinerId,
+          examinerName: assignment.examiner?.fullName || "Examiner", email: assignment.examiner?.email || "",
+          department: assignment.examiner?.department || "", institution: assignment.examiner?.institution || "",
+          status: assignment.status as AssignedExaminerData["status"], assignedAt: assignment.createdAt,
+        })) };
+    }));
+    setExam({ ...record, subjects });
+    setSelectedSubjectId((current) => subjects.some((subject) => subject.id === current) ? current : subjects[0]?.id || "");
+    const examiners = await apiRequest<typeof availableExaminers>("/examiner-accounts", accessToken).catch(() => []);
+    setAvailableExaminers(examiners.filter((candidate) => !candidate.status || candidate.status === "ACTIVE"));
+    const analyses: Record<string, RubricAnalysisData[]> = {};
+    await Promise.all(subjects.flatMap((subject) => subject.markingSchemes || []).map(async (scheme) => {
+      const versions = await apiRequest<Array<{ id: string }>>(`/marking-schemes/${scheme.id}/analyses`, accessToken);
+      analyses[scheme.id] = await Promise.all(versions.map(async (version) => normalizeRubric(
+        await apiRequest<Omit<RubricAnalysisData, "questions"> & { questions?: LiveQuestion[] }>(`/marking-scheme-analyses/${version.id}`, accessToken)
+      )));
+    }));
+    setRubricAnalysesMap(analyses);
+  }, [accessToken, rawExamId]);
+
   useEffect(() => {
-    if (!accessToken) return;
-    let cancelled = false;
-    async function loadExam() {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_BASE_URL}/exams/${rawExamId}`, {
-          credentials: "include",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!res.ok) throw new Error(`Could not load exam (HTTP ${res.status})`);
-        const json = await res.json();
-        if (json.success && json.data) {
-          if (!cancelled) {
-            setExam(json.data);
-            if (json.data.subjects?.length > 0) {
-              setSelectedSubjectId(json.data.subjects[0].id);
-            }
-            setLoading(false);
-          }
-          return;
-        }
-        throw new Error('Invalid exam response');
-      } catch {
-        if (cancelled) return;
-        if (process.env.NODE_ENV === 'production') {
-          setExam(null);
-          setStatusMessage({ type: 'error', text: 'Examination data could not be loaded. Please return to the examination list and retry.' });
-          setLoading(false);
-          return;
-        }
-      }
-
-      const found = INITIAL_EXAMS.find(
-        (e) => e.id === rawExamId || e.code.toLowerCase() === rawExamId?.toLowerCase()
-      ) || INITIAL_EXAMS[0];
-
-      if (cancelled) return;
-      setExam(JSON.parse(JSON.stringify(found)));
-      if (found && found.subjects?.length > 0) {
-        setSelectedSubjectId(found.subjects[0].id);
-      }
-      setLoading(false);
-    }
-
-    if (rawExamId) {
-      loadExam();
-    }
-    return () => { cancelled = true; };
-  }, [rawExamId, accessToken]);
+    if (!accessToken || !rawExamId) return;
+    reloadExam().catch((cause) => {
+      setExam(null);
+      setStatusMessage({ type: "error", text: cause instanceof Error ? cause.message : "Examination data could not be loaded" });
+    }).finally(() => setLoading(false));
+  }, [reloadExam, accessToken, rawExamId]);
 
   // Flash status message
   const showFeedback = (type: "success" | "error" | "info", text: string) => {
@@ -213,532 +215,137 @@ export default function ExamWorkbenchPage() {
   // ----------------------------------------------------
   // SUBJECT ACTIONS
   // ----------------------------------------------------
-  const handleAddSubject = (e: React.FormEvent) => {
+  const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSubjectCode.trim() || !newSubjectName.trim()) {
-      showFeedback("error", "Subject code and subject name are required.");
-      return;
-    }
-
-    const marks = parseInt(newSubjectMaxMarks, 10);
-    if (isNaN(marks) || marks <= 0) {
-      showFeedback("error", "Maximum marks must be a positive integer.");
-      return;
-    }
-
-    const newSub: SubjectData = {
-      id: `subj-${Date.now()}`,
-      examId: exam!.id,
-      code: newSubjectCode.trim().toUpperCase(),
-      name: newSubjectName.trim(),
-      description: newSubjectDesc.trim(),
-      maxMarks: marks,
-      questions: [],
-      markingSchemes: [
-        {
-          id: `sch-${Date.now()}`,
-          subjectId: `subj-${Date.now()}`,
-          title: `Standard Marking Scheme - ${newSubjectCode.trim().toUpperCase()}`,
-          instructions: "Award step credit for correct method derivation and clear mathematical steps.",
-          version: 1,
-          status: "DRAFT",
-        },
-      ],
-      assignedExaminers: [],
-    };
-
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: [...prev.subjects, newSub],
-      };
-    });
-
-    setSelectedSubjectId(newSub.id);
-    setIsAddSubjectModalOpen(false);
-    setNewSubjectCode("");
-    setNewSubjectName("");
-    setNewSubjectDesc("");
-    showFeedback("success", `Subject ${newSub.code} added successfully.`);
+    if (!exam || !accessToken) return;
+    try {
+      await apiRequest(`/exams/${exam.id}/subjects`, accessToken, { method: "POST", body: JSON.stringify({
+        code: newSubjectCode.trim(), name: newSubjectName.trim(), maxMarks: Number(newSubjectMaxMarks),
+        description: newSubjectDesc.trim(),
+      }) });
+      await reloadExam();
+      setIsAddSubjectModalOpen(false);
+      setNewSubjectCode(""); setNewSubjectName(""); setNewSubjectDesc("");
+      showFeedback("success", "Subject saved.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not save subject"); }
   };
 
-  // ----------------------------------------------------
-  // QUESTION ACTIONS
-  // ----------------------------------------------------
-  const handleAddQuestion = (e: React.FormEvent) => {
+  const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSubject) return;
-
-    if (!newQNum.trim() || !newQText.trim()) {
-      showFeedback("error", "Question number and question text are required.");
-      return;
-    }
-
-    const marks = parseInt(newQMarks, 10);
-    if (isNaN(marks) || marks <= 0) {
-      showFeedback("error", "Maximum marks must be greater than 0.");
-      return;
-    }
-
-    const existing = selectedSubject.questions.find(
-      (q) => q.questionNumber.toLowerCase() === newQNum.trim().toLowerCase()
-    );
-    if (existing) {
-      showFeedback("error", `Question ${newQNum.trim()} already exists in this subject.`);
-      return;
-    }
-
-    const newQuestion: QuestionData = {
-      id: `q-${Date.now()}`,
-      subjectId: selectedSubject.id,
-      questionNumber: newQNum.trim().toUpperCase(),
-      questionText: newQText.trim(),
-      maximumMarks: marks,
-      orderIndex: selectedSubject.questions.length + 1,
-      section: newQSection.trim() || "Section A",
-      criteria: [],
-    };
-
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: prev.subjects.map((sub) => {
-          if (sub.id !== selectedSubject.id) return sub;
-          return {
-            ...sub,
-            questions: [...sub.questions, newQuestion],
-          };
-        }),
-      };
-    });
-
-    setIsAddQuestionOpen(false);
-    setNewQNum("");
-    setNewQText("");
-    setNewQMarks("14");
-    showFeedback("success", `Question ${newQuestion.questionNumber} added.`);
+    if (!selectedSubject || !accessToken) return;
+    try {
+      await apiRequest(`/subjects/${selectedSubject.id}/questions`, accessToken, { method: "POST", body: JSON.stringify({
+        questionNumber: newQNum.trim(), questionText: newQText.trim(), maximumMarks: Number(newQMarks),
+        orderIndex: selectedSubject.questions.length + 1, section: newQSection.trim(),
+      }) });
+      await reloadExam(); setIsAddQuestionOpen(false); setNewQNum(""); setNewQText("");
+      showFeedback("success", "Question saved.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not save question"); }
   };
 
-  const handleMoveQuestion = (questionId: string, direction: "up" | "down") => {
-    if (!selectedSubject) return;
+  const handleMoveQuestion = async (questionId: string, direction: "up" | "down") => {
+    if (!selectedSubject || !accessToken) return;
     const questions = [...selectedSubject.questions];
-    const index = questions.findIndex((q) => q.id === questionId);
-    if (index === -1) return;
-
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= questions.length) return;
-
-    const temp = questions[index];
-    questions[index] = questions[targetIndex];
-    questions[targetIndex] = temp;
-
-    const reordered = questions.map((q, idx) => ({
-      ...q,
-      orderIndex: idx + 1,
-    }));
-
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: prev.subjects.map((sub) => {
-          if (sub.id !== selectedSubject.id) return sub;
-          return {
-            ...sub,
-            questions: reordered,
-          };
-        }),
-      };
-    });
-
-    showFeedback("info", "Question order updated.");
+    const index = questions.findIndex((question) => question.id === questionId);
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || target < 0 || target >= questions.length) return;
+    [questions[index], questions[target]] = [questions[target], questions[index]];
+    try {
+      await apiRequest(`/subjects/${selectedSubject.id}/questions/reorder`, accessToken, { method: "POST",
+        body: JSON.stringify({ questionOrders: questions.map((question, position) => ({ id: question.id, orderIndex: position + 1 })) }) });
+      await reloadExam(); showFeedback("success", "Question order saved.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not reorder questions"); }
   };
 
-  const handleDeleteQuestion = (questionId: string) => {
-    if (!selectedSubject) return;
-    if (!confirm("Are you sure you want to remove this question?")) return;
-
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: prev.subjects.map((sub) => {
-          if (sub.id !== selectedSubject.id) return sub;
-          const filtered = sub.questions.filter((q) => q.id !== questionId);
-          return {
-            ...sub,
-            questions: filtered.map((q, idx) => ({ ...q, orderIndex: idx + 1 })),
-          };
-        }),
-      };
-    });
-
-    showFeedback("info", "Question deleted.");
+  const handleDeleteQuestion = async (questionId: string) => {
+    if (!selectedSubject || !accessToken || !confirm("Remove this question?")) return;
+    try {
+      await apiRequest(`/questions/${questionId}`, accessToken, { method: "DELETE" });
+      await reloadExam(); showFeedback("success", "Question archived.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not remove question"); }
   };
 
-  // ----------------------------------------------------
-  // CRITERIA & MARKING SCHEME ACTIONS
-  // ----------------------------------------------------
-  const handleAddCriterion = (e: React.FormEvent, questionId: string) => {
+  const handleAddCriterion = async (e: React.FormEvent, questionId: string) => {
     e.preventDefault();
-    if (!selectedSubject) return;
-
-    const question = selectedSubject.questions.find((q) => q.id === questionId);
+    if (!selectedSubject || !accessToken) return;
+    const question = selectedSubject.questions.find((item) => item.id === questionId);
     if (!question) return;
-
-    if (!newCritName.trim()) {
-      showFeedback("error", "Criterion name/step is required.");
-      return;
+    const marks = Number(newCritMarks);
+    const allocated = (question.criteria || []).reduce((sum, item) => sum + item.maximumMarks, 0);
+    if (!Number.isFinite(marks) || marks <= 0 || allocated + marks > question.maximumMarks) {
+      showFeedback("error", "Criterion marks must be positive and fit within question maximum marks."); return;
     }
-
-    const marks = parseInt(newCritMarks, 10);
-    if (isNaN(marks) || marks <= 0) {
-      showFeedback("error", "Criterion marks must be greater than 0.");
-      return;
-    }
-
-    const existingSum = (question.criteria || []).reduce((s, c) => s + c.maximumMarks, 0);
-    if (existingSum + marks > question.maximumMarks) {
-      showFeedback(
-        "error",
-        `Sum of criteria (${existingSum + marks}) exceeds question maximum marks (${question.maximumMarks}).`
-      );
-      return;
-    }
-
-    const newCrit: CriterionData = {
-      id: `crit-${Date.now()}`,
-      name: newCritName.trim(),
-      description: newCritDesc.trim(),
-      maximumMarks: marks,
-      orderIndex: (question.criteria?.length || 0) + 1,
-      partialCreditAllowed: newCritPartial,
-      alternateMethodAccepted: newCritAlternate,
-    };
-
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: prev.subjects.map((sub) => {
-          if (sub.id !== selectedSubject.id) return sub;
-          return {
-            ...sub,
-            questions: sub.questions.map((q) => {
-              if (q.id !== questionId) return q;
-              return {
-                ...q,
-                criteria: [...(q.criteria || []), newCrit],
-              };
-            }),
-          };
-        }),
-      };
-    });
-
-    setActiveQuestionForCriterion(null);
-    setNewCritName("");
-    setNewCritDesc("");
-    setNewCritMarks("2");
-    showFeedback("success", `Criterion added to ${question.questionNumber}.`);
+    try {
+      await apiRequest(`/questions/${questionId}/criteria`, accessToken, { method: "POST", body: JSON.stringify({
+        name: newCritName.trim(), description: newCritDesc.trim(), maximumMarks: marks,
+        orderIndex: (question.criteria?.length || 0) + 1, partialCreditAllowed: newCritPartial,
+        alternateMethodAccepted: newCritAlternate,
+      }) });
+      await reloadExam(); setActiveQuestionForCriterion(null); setNewCritName(""); setNewCritDesc("");
+      showFeedback("success", "Criterion saved.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not save criterion"); }
   };
 
-  const handleDeleteCriterion = (questionId: string, criterionId: string) => {
-    if (!selectedSubject) return;
-
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: prev.subjects.map((sub) => {
-          if (sub.id !== selectedSubject.id) return sub;
-          return {
-            ...sub,
-            questions: sub.questions.map((q) => {
-              if (q.id !== questionId) return q;
-              return {
-                ...q,
-                criteria: (q.criteria || []).filter((c) => c.id !== criterionId),
-              };
-            }),
-          };
-        }),
-      };
-    });
-
-    showFeedback("info", "Evaluation criterion removed.");
+  const handleDeleteCriterion = async (_questionId: string, criterionId: string) => {
+    if (!accessToken || !confirm("Remove this criterion?")) return;
+    try {
+      await apiRequest(`/criteria/${criterionId}`, accessToken, { method: "DELETE" });
+      await reloadExam(); showFeedback("success", "Criterion removed.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not remove criterion"); }
   };
 
-  const handleApproveMarkingScheme = () => {
-    if (!selectedSubject) return;
+  const handleApproveMarkingScheme = async () => {
+    if (!selectedSubject || !accessToken) return;
+    const scheme = selectedSubject.markingSchemes?.[0];
+    if (!scheme) { showFeedback("error", "Create a marking scheme before approval."); return; }
+    if (!selectedSubject.questions.length || selectedSubject.questions.some((question) =>
+      Math.abs((question.criteria || []).reduce((sum, item) => sum + item.maximumMarks, 0) - question.maximumMarks) > 0.01)) {
+      showFeedback("error", "Every question needs criteria summing to its maximum marks."); return;
+    }
+    try {
+      await apiRequest(`/marking-schemes/${scheme.id}`, accessToken, { method: "PATCH", body: JSON.stringify({ status: "APPROVED" }) });
+      await reloadExam(); showFeedback("success", "Marking scheme approved and saved.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not approve scheme"); }
+  };
 
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: prev.subjects.map((sub) => {
-          if (sub.id !== selectedSubject.id) return sub;
-          return {
-            ...sub,
-            markingSchemes: sub.markingSchemes.map((ms) => ({
-              ...ms,
-              status: "APPROVED",
-            })),
-          };
-        }),
-      };
-    });
-
-    showFeedback("success", `Marking scheme for ${selectedSubject.code} approved.`);
+  const handleCreateMarkingScheme = async () => {
+    if (!selectedSubject || !accessToken) return;
+    try {
+      await apiRequest(`/subjects/${selectedSubject.id}/marking-schemes`, accessToken, { method: "POST",
+        body: JSON.stringify({ title: `Marking scheme — ${selectedSubject.code}`, instructions: "", status: "DRAFT", version: 1 }) });
+      await reloadExam(); showFeedback("success", "Draft marking scheme created. Add human reviewed criteria before approval.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not create marking scheme"); }
   };
 
   // ----------------------------------------------------
   // PHASE 6: AI RUBRIC ENGINE ACTIONS
   // ----------------------------------------------------
   const handleAnalyzeWithAI = async () => {
-    if (!selectedSubject) return;
-    const currentScheme = selectedSubject.markingSchemes?.[0];
-    if (!currentScheme) {
-      showFeedback("error", "No marking scheme available to analyze.");
-      return;
-    }
-
-    if (selectedSubject.questions.length === 0) {
-      showFeedback("error", "Cannot analyze: No questions defined for this subject.");
-      return;
-    }
-
+    if (!selectedSubject || !accessToken) return;
+    const scheme = selectedSubject.markingSchemes?.[0];
+    if (!scheme) { showFeedback("error", "Create a draft marking scheme first."); return; }
+    if (!selectedSubject.questions.length) { showFeedback("error", "Add reviewed questions before analysis."); return; }
     setIsAnalyzingRubric(true);
-    showFeedback("info", "Starting ANKLYZE AI analysis of marking scheme...");
-
     try {
-      // Attempt backend API call
-      const res = await fetch(`${API_BASE_URL}/marking-schemes/${currentScheme.id}/analyze`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        },
-        credentials: "include",
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          const newAnalysis: RubricAnalysisData = {
-            id: json.data.id,
-            markingSchemeId: json.data.markingSchemeId,
-            version: json.data.version,
-            overallStatus: json.data.overallStatus,
-            provider: json.data.provider,
-            model: json.data.model,
-            promptVersion: json.data.promptVersion,
-            confidence: json.data.confidence,
-            confidenceBand: json.data.confidenceBand,
-            fallbackUsed: json.data.fallbackUsed,
-            summary: json.data.summary,
-            createdAt: json.data.createdAt,
-            questions: json.data.questions.map((q: LiveQuestion) => ({
-              id: q.id,
-              questionId: q.questionId,
-              questionNumber: q.questionNumber,
-              questionText: q.questionText || "",
-              maximumMarks: q.maximumMarks || 0,
-              specialInstructions: q.specialInstructions ? [q.specialInstructions] : [],
-              isReviewRequired: !q.isBalanced,
-              issues: (json.data.issues || []).filter((i: RubricIssueData) => i.questionNumber === q.questionNumber),
-              criteria: (q.criteria || []).map((c: LiveCriterion) => ({
-                id: c.id,
-                name: c.name,
-                description: c.description || "",
-                maximumMarks: c.maximumMarks,
-                orderIndex: c.orderIndex,
-                partialCreditAllowed: c.partialCreditAllowed,
-                alternateMethodAccepted: c.alternateMethodAccepted,
-                isHumanModified: c.isHumanModified,
-                originalAiValue: c.originalAiValue ? JSON.parse(c.originalAiValue) : undefined,
-                modifiedByName: c.modifiedById ? "Head Examiner" : undefined,
-                modifiedAt: c.modifiedAt,
-                modificationReason: c.modificationReason,
-              })),
-            })),
-            issues: json.data.issues || [],
-          };
-
-          setRubricAnalysesMap((prev) => {
-            const existing = prev[currentScheme.id] || [];
-            return {
-              ...prev,
-              [currentScheme.id]: [newAnalysis, ...existing],
-            };
-          });
-          setSelectedRubricVersion(newAnalysis.version);
-          setIsAnalyzingRubric(false);
-          showFeedback("success", `AI Rubric Analysis completed (Confidence ${Math.round(newAnalysis.confidence * 100)}%, ${newAnalysis.confidenceBand}).`);
-          return;
-        }
-      }
-    } catch {
-      // Backend offline: gracefully simulate client-side generation adhering to all grounding rules
-    }
-
-    // Deterministic simulation
-    await new Promise((r) => setTimeout(r, 1200));
-
-    const existingAnalyses = rubricAnalysesMap[currentScheme.id] || [];
-    const nextVer = existingAnalyses.length > 0 ? Math.max(...existingAnalyses.map((a) => a.version)) + 1 : 1;
-
-    const simulatedQuestions: RubricQuestionData[] = selectedSubject.questions.map((q) => {
-      const existingCriteria = q.criteria && q.criteria.length > 0 ? q.criteria : [
-        {
-          id: `crit-${q.id}-1`,
-          name: "Core Concept & Working Principle",
-          description: `Detailed and accurate answer for ${q.questionNumber}`,
-          maximumMarks: Math.round(q.maximumMarks * 0.6 * 10) / 10,
-          orderIndex: 1,
-          partialCreditAllowed: true,
-          alternateMethodAccepted: false,
-          isHumanModified: false,
-        },
-        {
-          id: `crit-${q.id}-2`,
-          name: "Analytical Solution / Method Execution",
-          description: "Step-by-step mathematical derivation or practical implementation",
-          maximumMarks: Math.round((q.maximumMarks - Math.round(q.maximumMarks * 0.6 * 10) / 10) * 10) / 10,
-          orderIndex: 2,
-          partialCreditAllowed: true,
-          alternateMethodAccepted: true,
-          isHumanModified: false,
-        },
-      ];
-
-      return {
-        id: `rq-${q.id}`,
-        questionId: q.id,
-        questionNumber: q.questionNumber,
-        questionText: q.questionText,
-        maximumMarks: q.maximumMarks,
-        specialInstructions: ["Award proportionate marks if core derivation steps are logically sound."],
-        isReviewRequired: false,
-        issues: [],
-        criteria: existingCriteria.map((c, idx) => ({
-          id: `rc-${q.id}-${idx + 1}`,
-          name: c.name,
-          description: c.description || "",
-          maximumMarks: c.maximumMarks,
-          orderIndex: c.orderIndex || idx + 1,
-          partialCreditAllowed: c.partialCreditAllowed !== undefined ? c.partialCreditAllowed : true,
-          alternateMethodAccepted: c.alternateMethodAccepted !== undefined ? c.alternateMethodAccepted : false,
-          isHumanModified: false,
-        })),
-      };
-    });
-
-    const simulatedIssues: RubricIssueData[] = [
-      {
-        id: `iss-gen-${Date.now()}`,
-        type: "AMBIGUITY",
-        severity: "MEDIUM",
-        questionNumber: selectedSubject.questions[0]?.questionNumber || "Q01",
-        issue: "Partial-credit deduction policy is not explicitly quantified per sub-step.",
-        explanation: "The marking scheme mentions step-marking generally, but does not define deduction if units or intermediate steps are omitted.",
-        suggestedClarification: "Specify 0.5 mark deduction per omitted intermediate calculation.",
-        isResolved: false,
-      },
-    ];
-
-    const simulatedAnalysis: RubricAnalysisData = {
-      id: `rubric-${selectedSubject.code}-${Date.now()}`,
-      markingSchemeId: currentScheme.id,
-      version: nextVer,
-      overallStatus: "READY_FOR_REVIEW",
-      provider: "gemini",
-      model: "gemini-1.5-flash",
-      promptVersion: "rubric-analysis-v1",
-      confidence: 0.91,
-      confidenceBand: "HIGH",
-      fallbackUsed: false,
-      summary: `Successfully interpreted human marking scheme for ${selectedSubject.code}. Structured machine-readable rubric generated with step allocations, partial credit, and alternate method rules.`,
-      createdAt: new Date().toISOString(),
-      questions: simulatedQuestions,
-      issues: simulatedIssues,
-    };
-
-    setRubricAnalysesMap((prev) => ({
-      ...prev,
-      [currentScheme.id]: [simulatedAnalysis, ...existingAnalyses],
-    }));
-    setSelectedRubricVersion(nextVer);
-    setIsAnalyzingRubric(false);
-    showFeedback("success", `AI Rubric Analysis completed (Confidence 91%, High). Version ${nextVer} ready for human review.`);
+      const analysis = await apiRequest<{ version: number }>(`/marking-schemes/${scheme.id}/analyze`, accessToken,
+        { method: "POST" });
+      await reloadExam(); setSelectedRubricVersion(analysis.version);
+      showFeedback("success", "Rubric analysis saved for human review.");
+    } catch (cause) {
+      showFeedback("error", cause instanceof Error ? cause.message : "Rubric analysis failed");
+    } finally { setIsAnalyzingRubric(false); }
   };
 
   const handleReanalyzeRubric = () => {
     handleAnalyzeWithAI();
   };
 
-  const handleApproveRubricAnalysis = (analysisId: string) => {
-    if (!selectedSubject) return;
-    const currentScheme = selectedSubject.markingSchemes?.[0];
-    if (!currentScheme) return;
-
-    const analyses = rubricAnalysesMap[currentScheme.id] || [];
-    const target = analyses.find((a) => a.id === analysisId);
-    if (!target) return;
-
-    // Validate marks consistency
-    for (const q of target.questions) {
-      const sum = q.criteria.reduce((acc, c) => acc + c.maximumMarks, 0);
-      const roundedSum = Math.round(sum * 10) / 10;
-      const expected = Math.round(q.maximumMarks * 10) / 10;
-      if (Math.abs(roundedSum - expected) > 0.05) {
-        showFeedback(
-          "error",
-          `Cannot approve rubric: Question ${q.questionNumber} criteria sum (${roundedSum}) does not match maximum marks (${expected}).`
-        );
-        return;
-      }
-    }
-
-    setRubricAnalysesMap((prev) => {
-      const updated = (prev[currentScheme.id] || []).map((a) => {
-        if (a.id === analysisId) {
-          return {
-            ...a,
-            overallStatus: "APPROVED" as const,
-            approvedByName: "Head Examiner",
-            approvedAt: new Date().toISOString(),
-          };
-        }
-        if (a.overallStatus === "APPROVED") {
-          return { ...a, overallStatus: "SUPERSEDED" as const };
-        }
-        return a;
-      });
-      return { ...prev, [currentScheme.id]: updated };
-    });
-
-    // Also update parent marking scheme status
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: prev.subjects.map((sub) => {
-          if (sub.id !== selectedSubject.id) return sub;
-          return {
-            ...sub,
-            markingSchemes: sub.markingSchemes.map((ms) => ({
-              ...ms,
-              status: "APPROVED",
-            })),
-          };
-        }),
-      };
-    });
-
-    showFeedback("success", `Rubric Version ${target.version} approved by Head Examiner and published.`);
+  const handleApproveRubricAnalysis = async (analysisId: string) => {
+    if (!accessToken) return;
+    try {
+      await apiRequest(`/marking-scheme-analyses/${analysisId}/approve`, accessToken, { method: "POST" });
+      await reloadExam(); showFeedback("success", "Rubric approved and saved.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not approve rubric"); }
   };
 
   const handleOpenRejectModal = () => {
@@ -746,32 +353,13 @@ export default function ExamWorkbenchPage() {
     setIsRejectModalOpen(true);
   };
 
-  const handleConfirmRejectAnalysis = (analysisId: string) => {
-    if (!selectedSubject) return;
-    const currentScheme = selectedSubject.markingSchemes?.[0];
-    if (!currentScheme) return;
-
-    if (!rejectReasonText.trim()) {
-      showFeedback("error", "Please provide a reason for rejecting this rubric analysis.");
-      return;
-    }
-
-    setRubricAnalysesMap((prev) => {
-      const updated = (prev[currentScheme.id] || []).map((a) => {
-        if (a.id === analysisId) {
-          return {
-            ...a,
-            overallStatus: "REJECTED" as const,
-            rejectionReason: rejectReasonText.trim(),
-          };
-        }
-        return a;
-      });
-      return { ...prev, [currentScheme.id]: updated };
-    });
-
-    setIsRejectModalOpen(false);
-    showFeedback("info", "Rubric analysis marked as REJECTED.");
+  const handleConfirmRejectAnalysis = async (analysisId: string) => {
+    if (!accessToken || !rejectReasonText.trim()) { showFeedback("error", "A rejection reason is required."); return; }
+    try {
+      await apiRequest(`/marking-scheme-analyses/${analysisId}/reject`, accessToken,
+        { method: "POST", body: JSON.stringify({ reason: rejectReasonText.trim() }) });
+      await reloadExam(); setIsRejectModalOpen(false); showFeedback("success", "Rubric rejection saved.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not reject rubric"); }
   };
 
   const handleOpenEditCriterion = (
@@ -788,183 +376,61 @@ export default function ExamWorkbenchPage() {
     setEditCritReason(criterion.modificationReason || "Adjusted criteria breakdown to align with curriculum.");
   };
 
-  const handleSaveEditCriterion = () => {
-    if (!editingCriterion || !selectedSubject) return;
-    const currentScheme = selectedSubject.markingSchemes?.[0];
-    if (!currentScheme) return;
-
-    const parsedMarks = parseFloat(editCritMarks);
-    if (isNaN(parsedMarks) || parsedMarks <= 0) {
-      showFeedback("error", "Marks must be a positive number.");
-      return;
-    }
-
-    if (!editCritReason.trim()) {
-      showFeedback("error", "Reason for modification is required for academic provenance.");
-      return;
-    }
-
-    setRubricAnalysesMap((prev) => {
-      const currentList = prev[currentScheme.id] || [];
-      const updated = currentList.map((analysis) => {
-        if (analysis.version !== selectedRubricVersion) return analysis;
-
-        return {
-          ...analysis,
-          questions: analysis.questions.map((q) => {
-            if (q.questionId !== editingCriterion.questionId) return q;
-
-            return {
-              ...q,
-              criteria: q.criteria.map((c) => {
-                if (c.id !== editingCriterion.criterion.id) return c;
-
-                const originalAi = c.originalAiValue || {
-                  name: c.name,
-                  description: c.description,
-                  maximumMarks: c.maximumMarks,
-                  partialCreditAllowed: c.partialCreditAllowed,
-                  alternateMethodAccepted: c.alternateMethodAccepted,
-                };
-
-                return {
-                  ...c,
-                  name: editCritName.trim(),
-                  description: editCritDesc.trim(),
-                  maximumMarks: parsedMarks,
-                  partialCreditAllowed: editCritPartial,
-                  alternateMethodAccepted: editCritAlternate,
-                  isHumanModified: true,
-                  originalAiValue: originalAi,
-                  modifiedByName: "Head Examiner",
-                  modifiedAt: new Date().toISOString(),
-                  modificationReason: editCritReason.trim(),
-                };
-              }),
-            };
-          }),
-        };
-      });
-
-      return { ...prev, [currentScheme.id]: updated };
-    });
-
-    setEditingCriterion(null);
-    showFeedback("success", "Criterion modified successfully. Original AI values preserved in provenance trail.");
+  const handleSaveEditCriterion = async () => {
+    if (!editingCriterion || !accessToken || !selectedSubject) return;
+    const scheme = selectedSubject.markingSchemes?.[0];
+    const analysis = scheme && (rubricAnalysesMap[scheme.id] || []).find((item) => item.version === selectedRubricVersion);
+    if (!analysis || !editCritReason.trim()) { showFeedback("error", "Provide a reason for the rubric change."); return; }
+    try {
+      await apiRequest(`/marking-scheme-analyses/${analysis.id}`, accessToken, { method: "PATCH", body: JSON.stringify({
+        criterionId: editingCriterion.criterion.id, name: editCritName.trim(), description: editCritDesc.trim(),
+        maxMarks: Number(editCritMarks), partialCreditAllowed: editCritPartial,
+        alternateMethodAccepted: editCritAlternate, reason: editCritReason.trim(),
+      }) });
+      await reloadExam(); setEditingCriterion(null); showFeedback("success", "Criterion change saved with provenance.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not save criterion change"); }
   };
 
-  const handleResolveIssue = (issueId: string) => {
-    if (!selectedSubject) return;
-    const currentScheme = selectedSubject.markingSchemes?.[0];
-    if (!currentScheme) return;
-
-    setRubricAnalysesMap((prev) => {
-      const currentList = prev[currentScheme.id] || [];
-      const updated = currentList.map((analysis) => {
-        if (analysis.version !== selectedRubricVersion) return analysis;
-
-        return {
-          ...analysis,
-          issues: analysis.issues.map((i) => (i.id === issueId ? { ...i, isResolved: true } : i)),
-          questions: analysis.questions.map((q) => ({
-            ...q,
-            issues: q.issues.map((i) => (i.id === issueId ? { ...i, isResolved: true } : i)),
-            isReviewRequired: q.issues.some((i) => i.id !== issueId && !i.isResolved),
-          })),
-        };
-      });
-
-      return { ...prev, [currentScheme.id]: updated };
-    });
-
-    showFeedback("info", "Ambiguity marked as resolved.");
+  const handleResolveIssue = async (issueId: string) => {
+    if (!accessToken) return;
+    try {
+      await apiRequest(`/marking-scheme-analyses/issues/${issueId}/resolve`, accessToken,
+        { method: "POST", body: JSON.stringify({ notes: "Reviewed in exam workbench" }) });
+      await reloadExam(); showFeedback("success", "Rubric issue resolution saved.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not resolve issue"); }
   };
-
 
   // ----------------------------------------------------
   // EXAMINER ASSIGNMENT ACTIONS
   // ----------------------------------------------------
-  const handleAssignExaminer = (e: React.FormEvent) => {
+  const handleAssignExaminer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSubject) return;
-
-    if (!selectedExaminerIdToAssign) {
-      showFeedback("error", "Please select an examiner from the directory.");
-      return;
-    }
-
-    const candidate = AVAILABLE_ACADEMIC_EXAMINERS.find(
-      (ex) => ex.id === selectedExaminerIdToAssign
-    );
-    if (!candidate) return;
-
-    const alreadyAssigned = selectedSubject.assignedExaminers?.some(
-      (a) => a.examinerId === candidate.id && a.status === "ACTIVE"
-    );
-    if (alreadyAssigned) {
-      showFeedback("error", `${candidate.fullName} is already assigned to ${selectedSubject.code}.`);
-      return;
-    }
-
-    const newAssignment: AssignedExaminerData = {
-      id: `asgn-${Date.now()}`,
-      examinerId: candidate.id,
-      examinerName: candidate.fullName,
-      email: candidate.email,
-      department: candidate.department,
-      institution: candidate.institution,
-      status: "ACTIVE",
-      assignedAt: new Date().toISOString().split("T")[0],
-    };
-
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: prev.subjects.map((sub) => {
-          if (sub.id !== selectedSubject.id) return sub;
-          return {
-            ...sub,
-            assignedExaminers: [...(sub.assignedExaminers || []), newAssignment],
-          };
-        }),
-      };
-    });
-
-    setSelectedExaminerIdToAssign("");
-    showFeedback("success", `${candidate.fullName} assigned to ${selectedSubject.code}.`);
+    if (!selectedSubject || !accessToken || !selectedExaminerIdToAssign) return;
+    try {
+      await apiRequest(`/subjects/${selectedSubject.id}/examiners`, accessToken, { method: "POST",
+        body: JSON.stringify({ examinerId: selectedExaminerIdToAssign, status: "ACTIVE" }) });
+      await reloadExam(); setSelectedExaminerIdToAssign(""); showFeedback("success", "Examiner assignment saved.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not assign examiner"); }
   };
 
-  const handleRevokeAssignment = (assignmentId: string) => {
-    if (!selectedSubject) return;
-    if (!confirm("Revoke examiner assignment for this subject?")) return;
-
-    setExam((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        subjects: prev.subjects.map((sub) => {
-          if (sub.id !== selectedSubject.id) return sub;
-          return {
-            ...sub,
-            assignedExaminers: sub.assignedExaminers.filter((a) => a.id !== assignmentId),
-          };
-        }),
-      };
-    });
-
-    showFeedback("info", "Examiner assignment revoked.");
+  const handleRevokeAssignment = async (assignmentId: string) => {
+    if (!selectedSubject || !accessToken || !confirm("Revoke examiner assignment?")) return;
+    const assignment = selectedSubject.assignedExaminers.find((item) => item.id === assignmentId);
+    if (!assignment) return;
+    try {
+      await apiRequest(`/subjects/${selectedSubject.id}/examiners/${assignment.examinerId}`, accessToken,
+        { method: "DELETE" });
+      await reloadExam(); showFeedback("success", "Examiner assignment revoked.");
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not revoke assignment"); }
   };
 
-  // Toggle Exam Status between DRAFT and ACTIVE
-  const handleToggleExamStatus = () => {
-    if (!exam) return;
-    const newStatus = exam.status === "DRAFT" ? "ACTIVE" : "DRAFT";
-    setExam((prev) => {
-      if (!prev) return prev;
-      return { ...prev, status: newStatus };
-    });
-    showFeedback("success", `Exam status updated to ${newStatus}.`);
+  const handleToggleExamStatus = async () => {
+    if (!exam || !accessToken) return;
+    const status = exam.status === "DRAFT" ? "ACTIVE" : "DRAFT";
+    try {
+      await apiRequest(`/exams/${exam.id}`, accessToken, { method: "PATCH", body: JSON.stringify({ status }) });
+      await reloadExam(); showFeedback("success", `Exam status saved as ${status}.`);
+    } catch (cause) { showFeedback("error", cause instanceof Error ? cause.message : "Could not update exam status"); }
   };
 
   if (loading) {
@@ -1783,6 +1249,10 @@ export default function ExamWorkbenchPage() {
 
                   {/* Top Action Buttons */}
                   <div className="flex flex-wrap items-center gap-2">
+                    {!currentScheme && <button type="button" onClick={handleCreateMarkingScheme}
+                      className="rounded-lg border border-[#4d858d] px-4 py-2 text-xs font-semibold text-[#2c6670]">
+                      Create draft scheme
+                    </button>}
                     {/* Version Selector if multiple analyses exist */}
                     {subjectAnalyses.length > 1 && (
                       <div className="flex items-center gap-1 text-xs">
@@ -2453,7 +1923,7 @@ export default function ExamWorkbenchPage() {
                       className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-2xs"
                     >
                       <option value="">-- Choose verified academic examiner --</option>
-                      {AVAILABLE_ACADEMIC_EXAMINERS.map((ex) => (
+                      {availableExaminers.map((ex) => (
                         <option key={ex.id} value={ex.id}>
                           {ex.fullName} ({ex.email}) — {ex.department}
                         </option>

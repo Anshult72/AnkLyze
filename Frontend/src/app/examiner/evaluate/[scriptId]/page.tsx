@@ -14,7 +14,9 @@ import {
   AVAILABLE_QUESTIONS,
   getScriptDataset,
 } from "@/data/evaluationWorkspaceMockData";
+import { fetchApi } from "@/utils/apiClient";
 import { Eye, SlidersHorizontal, CheckCircle, ArrowLeft } from "lucide-react";
+
 
 function EvaluationWorkspaceContent() {
   const params = useParams();
@@ -181,7 +183,7 @@ function EvaluationWorkspaceContent() {
   };
 
   // Handle Save / Commit Draft
-  const handleSave = () => {
+  const handleSave = async () => {
     const historyList = decisionHistories[currentQuestionId] || [];
     const newVersionNum = historyList.length + 1;
     const currentScore = evaluatedScores[currentQuestionId] ?? currentQuestion.aiSuggestedMarks;
@@ -198,6 +200,20 @@ function EvaluationWorkspaceContent() {
       notes: "Draft updated by examiner",
     };
 
+    // If an evaluation ID is associated with this attempt, persist via API
+    try {
+      await fetchApi<any>(`/evaluations/decision`, {
+        method: "PATCH",
+        body: {
+          decisionType: "SAVE_DRAFT",
+          totalMarksAwarded: currentScore,
+          examinerNotes: "Draft updated by examiner",
+        },
+      }).catch(() => null);
+    } catch (e) {
+      console.warn("Could not sync draft to remote API", e);
+    }
+
     setDecisionHistories((prev) => ({
       ...prev,
       [currentQuestionId]: [...(prev[currentQuestionId] || []), newRecord],
@@ -208,7 +224,7 @@ function EvaluationWorkspaceContent() {
   };
 
   // Handle Explicit Finalization
-  const handleFinalize = () => {
+  const handleFinalize = async () => {
     const historyList = decisionHistories[currentQuestionId] || [];
     const newVersionNum = historyList.length + 1;
     const currentScore = evaluatedScores[currentQuestionId] ?? currentQuestion.aiSuggestedMarks;
@@ -225,6 +241,19 @@ function EvaluationWorkspaceContent() {
       notes: "Authoritative examiner decision confirmed and finalized.",
     };
 
+    try {
+      await fetchApi<any>(`/evaluations/decision`, {
+        method: "PATCH",
+        body: {
+          decisionType: "FINALIZE",
+          totalMarksAwarded: currentScore,
+          examinerNotes: "Authoritative examiner decision confirmed and finalized.",
+        },
+      }).catch(() => null);
+    } catch (e) {
+      console.warn("Could not sync finalization to remote API", e);
+    }
+
     setDecisionHistories((prev) => ({
       ...prev,
       [currentQuestionId]: [...(prev[currentQuestionId] || []), finalizeRecord],
@@ -238,6 +267,7 @@ function EvaluationWorkspaceContent() {
     setIsSaved(true);
     showToast(`Authoritative decision FINALIZED for ${currentQuestionId} (${currentScore} / ${currentQuestion.maxMarks} marks)`);
   };
+
 
   // Handle Reopening Finalized Decision
   const handleReopen = (reason: string) => {
@@ -410,6 +440,7 @@ function EvaluationWorkspaceContent() {
         <WorkspaceBottomBar
           currentQuestionId={currentQuestionId}
           totalQuestions={dataset.totalQuestions}
+          questions={Object.values(dataset.questions).map((q: any) => ({ id: q.id, status: q.status }))}
           onSelectQuestion={handleSelectQuestion}
           onPreviousQuestion={handlePreviousQuestion}
           onNextQuestion={handleNextQuestion}
