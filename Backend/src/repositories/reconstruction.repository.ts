@@ -137,14 +137,19 @@ export class ReconstructionRepository {
         },
       });
 
-      // Create attempts and nested page mappings
+      // Track attempt indices per questionId to prevent unique constraint violation
+      const attemptIndexMap = new Map<string, number>();
+
       for (const att of input.attempts) {
+        const nextIndex = (attemptIndexMap.get(att.questionId) || 0) + 1;
+        attemptIndexMap.set(att.questionId, nextIndex);
+
         const createdAttempt = await tx.questionAttempt.create({
           data: {
             reconstructionId: reconstruction.id,
             scriptId: input.scriptId,
             questionId: att.questionId,
-            attemptIndex: att.attemptIndex,
+            attemptIndex: nextIndex,
             state: att.state,
             detectedQuestionLabel: att.detectedQuestionLabel,
             confidence: att.confidence,
@@ -155,14 +160,22 @@ export class ReconstructionRepository {
           },
         });
 
-        // Insert attempt pages
+        // Insert attempt pages with de-duplication by pageId to satisfy @@unique([attemptId, pageId])
         if (att.pages && att.pages.length > 0) {
+          const uniquePagesMap = new Map<string, any>();
+          for (const p of att.pages) {
+            if (!uniquePagesMap.has(p.pageId)) {
+              uniquePagesMap.set(p.pageId, p);
+            }
+          }
+          const uniquePages = Array.from(uniquePagesMap.values());
+
           await tx.questionAttemptPage.createMany({
-            data: att.pages.map((p) => ({
+            data: uniquePages.map((p, idx) => ({
               attemptId: createdAttempt.id,
               pageId: p.pageId,
               pageNumber: p.pageNumber,
-              pageOrder: p.pageOrder,
+              pageOrder: idx + 1,
               isContinuation: p.isContinuation,
               regionJson: p.regionJson,
             })),

@@ -51,6 +51,14 @@ export class QuestionMatcher {
   private static readonly CANCELLATION_REGEX =
     /\b(CANCELLED|CANCELED|CANCEL|WRONG|DO\s+NOT\s+EVALUATE|IGNORE\s+THIS|STRUCK\s+OUT|XXXX+)\b/i;
 
+  private static readonly HINDI_QUESTION_REGEX =
+    /(?:(?:^|\n|\r|\s)\s*(?:प्रश्न|प्र\.|उत्तर)\s*(?:क्र(?:\.|मांक)?|संख्या)?\s*[\.\(\[]?\s*(\d+|[०-९]+)\s*[\.\)\]]?(?:\s*\(?([a-zA-Zअ-ह])\)?)?)/gi;
+
+  private static devanagariToArabic(str: string): string {
+    const devanagariDigits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+    return str.replace(/[०-९]/g, (d) => `${devanagariDigits.indexOf(d)}`);
+  }
+
   /**
    * Scans text and OCR blocks on a single page to detect candidate question markers.
    */
@@ -61,12 +69,11 @@ export class QuestionMatcher {
     const markers: DetectedQuestionMarker[] = [];
     const seenLabels = new Set<string>();
 
-    // 1. Scan fullText for regex matches
     const textToScan = fullText || '';
-    let match: RegExpExecArray | null;
 
-    // Reset regex index
+    // 1. Scan English regex matches
     this.QUESTION_MARKER_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null;
 
     while ((match = this.QUESTION_MARKER_REGEX.exec(textToScan)) !== null) {
       const rawMatch = match[0].trim();
@@ -81,7 +88,6 @@ export class QuestionMatcher {
       if (!seenLabels.has(primaryLabel)) {
         seenLabels.add(primaryLabel);
 
-        // Best-effort bounding box correlation from blocks
         const matchingBlock = blocks.find((b) =>
           b.text && b.text.toLowerCase().includes(rawMatch.toLowerCase())
         );
@@ -91,6 +97,37 @@ export class QuestionMatcher {
           normalizedLabel: primaryLabel,
           candidateTokens: normalizedTokens,
           confidence: matchingBlock ? Math.min(1.0, matchingBlock.confidence + 0.05) : 0.88,
+          boundingBox: matchingBlock?.boundingBox,
+        });
+      }
+    }
+
+    // 2. Scan Hindi regex matches (e.g. प्रश्न क्र. (1) का उत्तर, प्रश्न 1 का उत्तर)
+    this.HINDI_QUESTION_REGEX.lastIndex = 0;
+    while ((match = this.HINDI_QUESTION_REGEX.exec(textToScan)) !== null) {
+      const rawMatch = match[0].trim();
+      const rawNum = match[1];
+      if (!rawNum) continue;
+
+      const mainNum = this.devanagariToArabic(rawNum);
+      if (!mainNum || mainNum === '0') continue;
+
+      const subPart = (match[2] || '').toLowerCase();
+      const normalizedTokens = this.generateNormalizedTokens(mainNum, subPart);
+      const primaryLabel = subPart ? `Q${mainNum}(${subPart})` : `Q${mainNum}`;
+
+      if (!seenLabels.has(primaryLabel)) {
+        seenLabels.add(primaryLabel);
+
+        const matchingBlock = blocks.find((b) =>
+          b.text && b.text.toLowerCase().includes(rawMatch.toLowerCase())
+        );
+
+        markers.push({
+          rawText: rawMatch,
+          normalizedLabel: primaryLabel,
+          candidateTokens: normalizedTokens,
+          confidence: matchingBlock ? Math.min(1.0, matchingBlock.confidence + 0.08) : 0.92,
           boundingBox: matchingBlock?.boundingBox,
         });
       }

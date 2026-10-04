@@ -95,7 +95,8 @@ export function errorHandler(
           res,
           {
             code: "DATABASE_ERROR",
-            message: "Database operation failed",
+            message: err.message || "Database operation failed",
+            details: { prismaCode: err.code, meta: err.meta },
           },
           500
         );
