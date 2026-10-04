@@ -24,6 +24,7 @@ interface AnswerSheetViewerProps {
   onPageChange: (page: number) => void;
   activeEvidenceKey?: string | null;
   onSelectEvidence?: (key: string | null) => void;
+  pageImageUrl?: string;
 }
 
 export default function AnswerSheetViewer({
@@ -33,6 +34,7 @@ export default function AnswerSheetViewer({
   onPageChange,
   activeEvidenceKey,
   onSelectEvidence,
+  pageImageUrl,
 }: AnswerSheetViewerProps) {
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [fitMode, setFitMode] = useState<boolean>(true);
@@ -265,6 +267,16 @@ export default function AnswerSheetViewer({
           </div>
 
           {/* PAGE CONTENT CONTAINER */}
+          {pageImageUrl ? (
+            <div className="relative min-h-[980px] w-full flex justify-center items-start p-2 bg-white">
+              <img
+                src={pageImageUrl}
+                alt={`Scanned Answer Page ${currentPage}`}
+                className="w-full h-auto max-w-full shadow-xs object-contain"
+                loading="eager"
+              />
+            </div>
+          ) : (
           <div className="pl-16 sm:pl-22 pr-5 sm:pr-9 pt-5 pb-12 relative min-h-[980px]">
             
             {/* ========================================================================= */}
@@ -629,8 +641,8 @@ export default function AnswerSheetViewer({
                 </button>
               </div>
             )}
-
           </div>
+          )}
 
           {/* PHYSICAL PAPER FOOTER BAND */}
           <div className="px-5 sm:px-9 py-2.5 border-t border-slate-200 bg-slate-50/60 flex items-center justify-between text-[10px] text-slate-400 font-mono">
