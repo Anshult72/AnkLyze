@@ -239,6 +239,18 @@ function validateEnv(): EnvConfig {
     );
   }
 
+  if (result.data.NODE_ENV === "production") {
+    const mockSettings = [
+      result.data.STORAGE_PROVIDER === "mock" && "STORAGE_PROVIDER",
+      result.data.OCR_PRIMARY_PROVIDER === "mock" && "OCR_PRIMARY_PROVIDER",
+      result.data.AI_PRIMARY_PROVIDER === "mock" && "AI_PRIMARY_PROVIDER",
+      result.data.AI_FALLBACK_PROVIDER === "mock" && "AI_FALLBACK_PROVIDER",
+    ].filter(Boolean);
+    if (mockSettings.length > 0) {
+      throw new Error(`Mock providers are forbidden in production: ${mockSettings.join(", ")}`);
+    }
+  }
+
   return result.data;
 }
 

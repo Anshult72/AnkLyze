@@ -27,10 +27,13 @@ export class OCRService {
 
     if (customProvider) {
       this.activeProvider = customProvider;
-    } else if (config.OCR_PRIMARY_PROVIDER === "google-vision" && this.googleVisionProvider.getIsConfigured()) {
+    } else if (config.OCR_PRIMARY_PROVIDER === "google-vision") {
       this.activeProvider = this.googleVisionProvider;
-      logger.info("OCRService: Active OCR Provider is GoogleVisionOCRProvider");
+      logger.info({ configured: this.googleVisionProvider.getIsConfigured() }, "OCRService: Active OCR Provider is GoogleVisionOCRProvider");
     } else {
+      if (config.NODE_ENV === "production") {
+        throw new Error("Mock OCR cannot be used in production");
+      }
       this.activeProvider = this.defaultMockProvider;
       logger.info(
         { requested: config.OCR_PRIMARY_PROVIDER },
@@ -53,9 +56,12 @@ export class OCRService {
   }
 
   public resetToDefault(): void {
-    if (config.OCR_PRIMARY_PROVIDER === "google-vision" && this.googleVisionProvider.getIsConfigured()) {
+    if (config.OCR_PRIMARY_PROVIDER === "google-vision") {
       this.activeProvider = this.googleVisionProvider;
     } else {
+      if (config.NODE_ENV === "production") {
+        throw new Error("Mock OCR cannot be used in production");
+      }
       this.activeProvider = this.defaultMockProvider;
     }
   }

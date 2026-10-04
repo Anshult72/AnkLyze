@@ -3,13 +3,13 @@
  * "Analyse the marks, not just the paper."
  * 
  * Rules:
- * - Uses pure JavaScript/TypeScript pdf-lib for cross-platform zero-native-compilation PDF inspection.
- * - Extracts and isolates individual pages while preserving 100% of the original document.
+ * - Renders each page to a PNG before OCR and multimodal analysis.
+ * - Preserves 100% of the original document.
  * - Computes basic page quality metrics (dimensions, aspect ratio, orientation).
  * - Never modifies the original PDF destructively.
  */
 
-import { PDFDocument } from "pdf-lib";
+import { createCanvas, DOMMatrix, ImageData } from "canvas";
 import { logger } from "../utils/logger";
 
 export interface ExtractedPageArtifact {
@@ -33,9 +33,40 @@ export class PDFProcessorService {
    * Inspects PDF buffer and extracts isolated page artifacts
    */
   public async processPdf(pdfBuffer: Buffer): Promise<PDFInspectionResult> {
+    // PDF.js expects the browser geometry types; the server canvas supplies them.
+    Object.assign(globalThis, { DOMMatrix, ImageData });
+    // Keep the ESM-only PDF.js import intact when TypeScript emits CommonJS.
+    const importPdfJs = new Function("moduleName", "return import(moduleName)") as
+      (moduleName: string) => Promise<typeof import("pdfjs-dist/legacy/build/pdf.mjs")>;
+    const pdfjs = await importPdfJs("pdfjs-dist/legacy/build/pdf.mjs");
+    class NodeCanvasFactory {
+      create(width: number, height: number) {
+        const canvas = createCanvas(width, height);
+        return { canvas, context: canvas.getContext("2d") };
+      }
+      reset(entry: { canvas: { width: number; height: number } }, width: number, height: number) {
+        entry.canvas.width = width;
+        entry.canvas.height = height;
+      }
+      destroy(entry: { canvas: { width: number; height: number } | null; context: unknown }) {
+        if (entry.canvas) {
+          entry.canvas.width = 0;
+          entry.canvas.height = 0;
+        }
+        entry.canvas = null;
+        entry.context = null;
+      }
+    }
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(pdfBuffer),
+      useSystemFonts: true,
+      disableFontFace: false,
+      isEvalSupported: false,
+      CanvasFactory: NodeCanvasFactory,
+    } as any);
     try {
-      const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
-      const pageCount = pdfDoc.getPageCount();
+      const pdfDoc = await loadingTask.promise;
+      const pageCount = pdfDoc.numPages;
 
       logger.info({ pageCount }, "PDFProcessorService: Loaded PDF successfully");
 
@@ -43,16 +74,15 @@ export class PDFProcessorService {
 
       for (let i = 0; i < pageCount; i++) {
         const pageNumber = i + 1;
-        const page = pdfDoc.getPage(i);
-        const { width, height } = page.getSize();
-        const rotation = page.getRotation().angle;
-
-        // Create an isolated single-page PDF document
-        const singleDoc = await PDFDocument.create();
-        const [copiedPage] = await singleDoc.copyPages(pdfDoc, [i]);
-        singleDoc.addPage(copiedPage);
-        const singlePageBytes = await singleDoc.save();
-        const pageBuffer = Buffer.from(singlePageBytes);
+        const page = await pdfDoc.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 2.5 });
+        const width = Math.ceil(viewport.width);
+        const height = Math.ceil(viewport.height);
+        const rotation = page.rotate;
+        const canvas = createCanvas(width, height);
+        const context = canvas.getContext("2d");
+        await page.render({ canvasContext: context as any, viewport }).promise;
+        const pageBuffer = canvas.toBuffer("image/png");
 
         const qualityScore = this.calculateQualityScore({
           width,
@@ -64,9 +94,9 @@ export class PDFProcessorService {
         pages.push({
           pageNumber,
           buffer: pageBuffer,
-          mimeType: "application/pdf",
-          width: Math.round(width),
-          height: Math.round(height),
+          mimeType: "image/png",
+          width,
+          height,
           fileSize: pageBuffer.length,
           rotation,
           qualityScore,
@@ -79,7 +109,9 @@ export class PDFProcessorService {
       };
     } catch (err: any) {
       logger.error({ error: err.message }, "PDFProcessorService: Failed to process PDF");
-      throw new Error(`PDF processing failed: ${err.message}`);
+      throw new Error(`PDF processing failed: ${err.message}`, { cause: err });
+    } finally {
+      await loadingTask.destroy();
     }
   }
 

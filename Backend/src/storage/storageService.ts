@@ -21,10 +21,13 @@ export class StorageService {
 
     if (customProvider) {
       this.provider = customProvider;
-    } else if (config.STORAGE_PROVIDER === "cloudinary" && this.cloudinaryProvider.getIsConfigured()) {
+    } else if (config.STORAGE_PROVIDER === "cloudinary") {
       this.provider = this.cloudinaryProvider;
-      logger.info("StorageService: Using CloudinaryStorageProvider as active storage engine");
+      logger.info({ configured: this.cloudinaryProvider.getIsConfigured() }, "StorageService: Using CloudinaryStorageProvider as active storage engine");
     } else {
+      if (config.NODE_ENV === "production") {
+        throw new Error("Mock storage cannot be used in production");
+      }
       this.provider = this.defaultMockProvider;
       logger.info(
         { requestedProvider: config.STORAGE_PROVIDER },
@@ -43,9 +46,12 @@ export class StorageService {
   }
 
   public resetToDefault(): void {
-    if (config.STORAGE_PROVIDER === "cloudinary" && this.cloudinaryProvider.getIsConfigured()) {
+    if (config.STORAGE_PROVIDER === "cloudinary") {
       this.provider = this.cloudinaryProvider;
     } else {
+      if (config.NODE_ENV === "production") {
+        throw new Error("Mock storage cannot be used in production");
+      }
       this.provider = this.defaultMockProvider;
     }
   }
