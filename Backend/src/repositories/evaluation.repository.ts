@@ -239,6 +239,9 @@ export class EvaluationRepository {
       });
 
       return evaluation;
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
     });
   }
 
@@ -524,6 +527,9 @@ export class EvaluationRepository {
           },
         },
       });
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
     });
   }
 
@@ -925,6 +931,9 @@ export class EvaluationRepository {
       });
 
       return evaluation;
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
     });
   }
 
