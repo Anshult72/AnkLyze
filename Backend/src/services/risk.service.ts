@@ -656,23 +656,22 @@ export class RiskService {
     const isRound2Evaluator = round2 && round2.evaluatorUserId === params.callerUserId;
     const isRound2Incomplete = round2 && round2.status !== RoundStatus.COMPLETED;
 
-    if (isRound2Evaluator && isRound2Incomplete && params.callerRole === 'EXAMINER') {
-      // Server-side redaction: Hide Round 1 marks and double evaluation comparison
-      const redactedRounds = rounds.map((r) => {
-        if (r.roundNumber === 1 && r.evaluation) {
-          return {
-            ...r,
-            evaluation: RiskRepository.redactFirstRoundData(r.evaluation),
-          };
-        }
-        return r;
-      });
-
+    if (isRound2Evaluator && isRound2Incomplete) {
+      // Do not include Round 1 at all: its record also carries evaluator identity,
+      // evaluation ID and other metadata that can reveal the first decision.
       return {
-        rounds: redactedRounds,
-        doubleEvaluationResult: null, // Zero leakage of comparison before completion
+        rounds: [round2],
+        doubleEvaluationResult: null,
         isRedacted: true,
       };
+    }
+
+    if (params.callerRole === 'EXAMINER') {
+      const ownRounds = rounds.filter((r) => r.evaluatorUserId === params.callerUserId);
+      if (ownRounds.length === 0) {
+        throw new Error('EVALUATION_ROUND_ACCESS_DENIED');
+      }
+      return { rounds: ownRounds, doubleEvaluationResult: null, isRedacted: true };
     }
 
     return {
@@ -749,14 +748,14 @@ export class RiskService {
       }
     }
 
-    // Query active examiners assigned to this subject/exam
+    // An examiner must be assigned to this exact subject and, when scoped,
+    // this exact exam. An OR query can silently select a different subject.
+    if (!subjectId) return [];
     const assignments = await prisma.examinerAssignment.findMany({
       where: {
         status: 'ACTIVE',
-        OR: [
-          ...(subjectId ? [{ subjectId }] : []),
-          ...(examId ? [{ examId }] : []),
-        ],
+        subjectId,
+        ...(examId ? { OR: [{ examId }, { examId: null }] } : {}),
       },
       include: {
         examiner: {
@@ -784,6 +783,7 @@ export class RiskService {
     for (const assign of assignments) {
       const user = assign.examiner;
       if (!user || user.status !== 'ACTIVE') continue;
+      if (user.role.name !== 'EXAMINER' && user.role.name !== 'HEAD_EXAMINER') continue;
       if (conflictingExaminerIds.has(user.id)) continue;
 
       if (!candidateMap.has(user.id)) {
@@ -856,21 +856,7 @@ export class RiskService {
       excludeExaminerUserId: params.round1ExaminerId || round1.evaluatorUserId || undefined,
     });
 
-    let selectedExaminerId: string | undefined = eligibleExaminers[0]?.id;
-
-    // Fallback: If in standalone testing / mock environment without assigned examiners in DB,
-    // query any active EXAMINER who is not round 1 examiner
-    if (!selectedExaminerId) {
-      const fallbackExaminer = await prisma.user.findFirst({
-        where: {
-          status: 'ACTIVE',
-          role: { name: 'EXAMINER' },
-          id: { not: params.round1ExaminerId || round1.evaluatorUserId || 'none' },
-        },
-        orderBy: { id: 'asc' },
-      });
-      selectedExaminerId = fallbackExaminer?.id;
-    }
+    const selectedExaminerId = eligibleExaminers[0]?.id;
 
     // Create Round 2 record
     const round2 = await RiskRepository.createEvaluationRound({
@@ -961,14 +947,7 @@ export class RiskService {
 
     const isEligible = eligibleList.some((e) => e.id === params.newExaminerUserId);
     if (!isEligible) {
-      // Also check if user exists, is active EXAMINER and not Round 1
-      const user = await prisma.user.findUnique({
-        where: { id: params.newExaminerUserId },
-        include: { role: true },
-      });
-      if (!user || user.status !== 'ACTIVE' || (user.role.name !== 'EXAMINER' && user.role.name !== 'HEAD_EXAMINER')) {
-        throw new Error(`UNAUTHORIZED_OR_INELIGIBLE_EXAMINER: User ${params.newExaminerUserId} is not an eligible active examiner`);
-      }
+      throw new Error(`UNAUTHORIZED_OR_INELIGIBLE_EXAMINER: User ${params.newExaminerUserId} is not assigned to this exam and subject`);
     }
 
     const previousExaminerId = round.evaluatorUserId;

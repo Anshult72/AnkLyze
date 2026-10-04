@@ -198,6 +198,10 @@ export class RiskController {
         data: result,
       });
     } catch (err: any) {
+      if (err.message === 'EVALUATION_ROUND_ACCESS_DENIED') {
+        res.status(403).json({ success: false, error: { code: err.message, message: 'This evaluation is not assigned to you' } });
+        return;
+      }
       if (err.name === 'ZodError') {
         res.status(400).json({
           success: false,
@@ -229,11 +233,26 @@ export class RiskController {
         return;
       }
 
+      const visible = await RiskService.getEvaluationRoundsForAttempt({
+        questionAttemptId: round.questionAttemptId,
+        callerUserId: (req as any).user?.id,
+        callerRole: (req as any).user?.role,
+      });
+      const visibleRound = visible.rounds.find((item) => item.id === id);
+      if (!visibleRound) {
+        res.status(403).json({ success: false, error: { code: 'EVALUATION_ROUND_ACCESS_DENIED', message: 'This round is hidden during independent evaluation' } });
+        return;
+      }
+
       res.status(200).json({
         success: true,
-        data: round,
+        data: visibleRound,
       });
     } catch (err: any) {
+      if (err.message === 'EVALUATION_ROUND_ACCESS_DENIED') {
+        res.status(403).json({ success: false, error: { code: err.message, message: 'This evaluation is not assigned to you' } });
+        return;
+      }
       if (err.name === 'ZodError') {
         res.status(400).json({
           success: false,
