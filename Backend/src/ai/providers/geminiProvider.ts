@@ -163,7 +163,7 @@ ${JSON.stringify(request.deterministicCandidates ?? [], null, 2)}
       if (page.imageBase64) {
         contentsParts.push({
           inlineData: {
-            mimeType: 'image/jpeg',
+            mimeType: page.imageMimeType || 'image/jpeg',
             data: page.imageBase64,
           },
         });

@@ -34,6 +34,7 @@ import {
   ReconstructionStatus,
 } from '@prisma/client';
 import { config } from '../config/env';
+import { storageService } from '../storage/storageService';
 
 export interface ReconstructScriptOptions {
   forceRerun?: boolean;
@@ -183,6 +184,26 @@ export class ReconstructionService {
       );
 
       try {
+        const visionPages = [];
+        for (const candidate of stage1Result.ambiguousPages) {
+          const page = script.pages.find((item) => item.id === candidate.pageId);
+          if (!page?.storageAssetId) {
+            throw new Error(`Stored image missing for page ${candidate.pageNumber}`);
+          }
+          const image = await storageService.download(page.storageAssetId, page.imageReference);
+          if (image.length > 8 * 1024 * 1024) {
+            throw new Error(`Page ${candidate.pageNumber} exceeds vision image size limit`);
+          }
+          const imageMimeType = image.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+            ? 'image/png' as const
+            : image.subarray(0, 3).equals(Buffer.from([255, 216, 255]))
+              ? 'image/jpeg' as const
+              : null;
+          if (!imageMimeType) {
+            throw new Error(`Unsupported stored image format for page ${candidate.pageNumber}`);
+          }
+          visionPages.push({ ...candidate, imageBase64: image.toString('base64'), imageMimeType });
+        }
         const aiExecution = await this.visionAI.reconstructAmbiguities({
           scriptId: script.id,
           scriptCode: script.scriptCode,
@@ -190,7 +211,7 @@ export class ReconstructionService {
           subjectName: script.subject?.name || '',
           examTitle: script.exam?.title || '',
           questions: examQuestions,
-          ambiguousPages: stage1Result.ambiguousPages,
+          ambiguousPages: visionPages,
           deterministicCandidates: stage1Result.deterministicCandidates,
           task: 'Resolve ambiguous question candidates, verify continuation or cancellation boundaries',
           timeoutMs: config.RECONSTRUCTION_TIMEOUT_MS,

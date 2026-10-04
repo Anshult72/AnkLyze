@@ -23,6 +23,7 @@ export interface VisionContextPageInput {
   pageNumber: number;
   imageReference?: string;
   imageBase64?: string;
+  imageMimeType?: 'image/png' | 'image/jpeg';
   ocrFullText: string;
   ocrConfidence: number;
   blocksSummary?: string;

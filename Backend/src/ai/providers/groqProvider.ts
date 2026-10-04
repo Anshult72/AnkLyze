@@ -155,7 +155,7 @@ ${JSON.stringify(request.deterministicCandidates ?? [], null, 2)}`;
         userMessageContent.push({
           type: 'image_url',
           image_url: {
-            url: `data:image/jpeg;base64,${page.imageBase64}`
+            url: `data:${page.imageMimeType || 'image/jpeg'};base64,${page.imageBase64}`
           }
         });
       }
