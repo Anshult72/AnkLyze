@@ -192,8 +192,8 @@ function LoginForm() {
           </button>
         </form>
 
-        {/* Development-only quick fill; production credentials come from administrators. */}
-        {process.env.NODE_ENV !== "production" && <div className="mt-8 pt-6 border-t border-slate-100">
+        {/* Demo roles quick fill for evaluators and demonstration */}
+        <div className="mt-8 pt-6 border-t border-slate-100">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#468189]" />
@@ -227,7 +227,7 @@ function LoginForm() {
               <div className="font-semibold text-slate-800 group-hover:text-[#276871]">Admin</div>
             </button>
           </div>
-        </div>}
+        </div>
 
         {/* SECURITY FOOTER */}
         <div className="mt-6 pt-4 text-center border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
