@@ -7,9 +7,9 @@ import { ApiResponse } from "../utils/api-response";
 
 export const examinerAccountRoutes = Router();
 
-examinerAccountRoutes.use(requireAuth, requireRole("SUPER_ADMIN"));
+examinerAccountRoutes.use(requireAuth);
 
-examinerAccountRoutes.get("/", async (_req, res, next) => {
+examinerAccountRoutes.get("/", requireRole("SUPER_ADMIN", "HEAD_EXAMINER"), async (_req, res, next) => {
   try {
     ApiResponse.success(res, await examinerAccountService.list());
   } catch (error) {
@@ -17,7 +17,7 @@ examinerAccountRoutes.get("/", async (_req, res, next) => {
   }
 });
 
-examinerAccountRoutes.post("/", validateRequest({ body: createExaminerSchema }), async (req, res, next) => {
+examinerAccountRoutes.post("/", requireRole("SUPER_ADMIN"), validateRequest({ body: createExaminerSchema }), async (req, res, next) => {
   try {
     const examiner = await examinerAccountService.create(req.body, req.user!.id);
     ApiResponse.success(res, examiner, 201);

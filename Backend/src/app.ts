@@ -63,6 +63,9 @@ export function createApp(): Express {
       service: "ANKLYZE API",
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.floor(process.uptime()),
+      version: "1.0.0",
+      revision: process.env.K_REVISION || null,
+      commitSha: process.env.GIT_COMMIT_SHA || process.env.COMMIT_SHA || process.env.SOURCE_VERSION || process.env.K_REVISION || null,
     });
   });
 
@@ -71,6 +74,8 @@ export function createApp(): Express {
       name: "ANKLYZE API",
       status: "ok",
       version: "1.0.0",
+      revision: process.env.K_REVISION || null,
+      commitSha: process.env.GIT_COMMIT_SHA || process.env.COMMIT_SHA || process.env.SOURCE_VERSION || process.env.K_REVISION || null,
       docs: `${config.API_PREFIX}/docs`,
       health: `${config.API_PREFIX}/health`,
     });

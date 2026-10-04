@@ -66,15 +66,16 @@ scriptRoutes.post(
   documentProcessingController.reprocessScript
 );
 
-// Script Intake Endpoints (SUPER_ADMIN and HEAD_EXAMINER only)
+// Script Intake Endpoints
 scriptRoutes.get(
   "/",
-  requireRole("SUPER_ADMIN", "HEAD_EXAMINER"),
+  requireRole("SUPER_ADMIN", "HEAD_EXAMINER", "EXAMINER", "MODERATOR"),
   scriptController.getScripts
 );
 
 scriptRoutes.get(
   "/:scriptId",
-  requireRole("SUPER_ADMIN", "HEAD_EXAMINER"),
+  requireRole("SUPER_ADMIN", "HEAD_EXAMINER", "EXAMINER", "MODERATOR"),
   scriptController.getScriptById
 );
+

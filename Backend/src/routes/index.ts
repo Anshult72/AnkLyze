@@ -27,6 +27,7 @@ import { resultRoutes } from "./result.routes";
 import { revaluationRoutes } from "./revaluation.routes";
 import { openApiSpec } from "../docs/openapi";
 import { questionPaperRoutes } from "./questionPaper.routes";
+import { dashboardRoutes } from "./dashboard.routes";
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.use("/health", healthRoutes);
 // Authentication & Authorization Endpoints
 router.use("/auth", authRoutes);
 router.use("/examiner-accounts", examinerAccountRoutes);
+router.use("/dashboards", dashboardRoutes);
 
 // Examination Management Endpoints (Phase 5)
 router.use("/exams", examRoutes);

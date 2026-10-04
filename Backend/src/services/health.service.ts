@@ -8,6 +8,9 @@ export interface ServiceHealth {
   environment: string;
   timestamp: string;
   uptimeSeconds: number;
+  version: string;
+  revision: string | null;
+  commitSha: string | null;
 }
 
 export interface ServiceReadiness {
@@ -26,6 +29,9 @@ export class HealthService {
       environment: config.NODE_ENV,
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.floor(process.uptime()),
+      version: "1.0.0",
+      revision: process.env.K_REVISION || null,
+      commitSha: process.env.GIT_COMMIT_SHA || process.env.COMMIT_SHA || process.env.SOURCE_VERSION || process.env.K_REVISION || null,
     };
   }
 
