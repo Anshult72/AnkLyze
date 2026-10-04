@@ -164,13 +164,53 @@ export class CloudinaryStorageProvider implements IStorageProvider {
   }
 
   public async download(assetId: string, referenceUrl?: string): Promise<Buffer> {
-    const url = referenceUrl || cloudinary.url(assetId, { secure: true, resource_type: "auto" });
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Failed to download asset from Cloudinary: HTTP ${res.status}`);
+    // 1. Try direct referenceUrl if provided
+    if (referenceUrl) {
+      try {
+        const res = await fetch(referenceUrl);
+        if (res.ok) {
+          const arrayBuf = await res.arrayBuffer();
+          return Buffer.from(arrayBuf);
+        }
+      } catch (err: any) {
+        logger.warn({ error: err.message, assetId }, "Cloudinary public download failed, trying signed private URL");
+      }
     }
-    const arrayBuf = await res.arrayBuffer();
-    return Buffer.from(arrayBuf);
+
+    // 2. Try Cloudinary authenticated private download for restricted/ACL formats (e.g. PDF)
+    if (this.isConfigured) {
+      try {
+        const privateUrl = cloudinary.utils.private_download_url(assetId, "", {
+          resource_type: "image",
+          type: "upload",
+          attachment: true,
+        });
+        const privRes = await fetch(privateUrl);
+        if (privRes.ok) {
+          const arrayBuf = await privRes.arrayBuffer();
+          return Buffer.from(arrayBuf);
+        }
+      } catch (err: any) {
+        logger.warn({ error: err.message, assetId }, "Cloudinary private download (image) failed");
+      }
+
+      try {
+        const rawPrivateUrl = cloudinary.utils.private_download_url(assetId, "", {
+          resource_type: "raw",
+          type: "upload",
+          attachment: true,
+        });
+        const rawRes = await fetch(rawPrivateUrl);
+        if (rawRes.ok) {
+          const arrayBuf = await rawRes.arrayBuffer();
+          return Buffer.from(arrayBuf);
+        }
+      } catch (err: any) {
+        logger.warn({ error: err.message, assetId }, "Cloudinary private download (raw) failed");
+      }
+    }
+
+    throw new Error(`Failed to download asset from Cloudinary: assetId=${assetId}`);
   }
 
   public async delete(assetId: string): Promise<StorageDeleteResult> {

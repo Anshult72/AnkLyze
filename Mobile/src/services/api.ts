@@ -11,7 +11,10 @@
 import { SecureStorageService } from "./storage";
 import { MobileUser, MobileScriptItem, MobileQuestionAttempt } from "../types";
 
-const API_BASE_URL = "http://localhost:5000/api/v1";
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  process.env.API_BASE_URL ||
+  "https://anklyze-gitconnect-38002070587.asia-south1.run.app/api/v1";
 
 export class MobileApiClient {
   private static async getHeaders(): Promise<Record<string, string>> {
