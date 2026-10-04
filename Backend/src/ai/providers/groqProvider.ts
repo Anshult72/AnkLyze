@@ -249,26 +249,11 @@ ${JSON.stringify(request.deterministicCandidates ?? [], null, 2)}`;
     const startTime = Date.now();
     const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
 
-    const userMessageContent: any[] = [
-      { type: 'text', text: `${request.systemPrompt}\n\n${request.userPrompt}` }
-    ];
-
-    if (request.pageImages && request.pageImages.length > 0) {
-      for (const img of request.pageImages) {
-        userMessageContent.push({
-          type: 'image_url',
-          image_url: {
-            url: `data:${img.mimeType};base64,${img.base64Data}`
-          }
-        });
-      }
-    }
-
     const payload = {
-      model: this.visionModel,
+      model: this.model,
       messages: [
         { role: 'system', content: request.systemPrompt },
-        { role: 'user', content: userMessageContent },
+        { role: 'user', content: request.userPrompt },
       ],
       response_format: { type: 'json_object' },
       temperature: 0.1,

@@ -152,16 +152,28 @@ export class EvaluationRepository {
    */
   public static async createEvaluation(input: CreateEvaluationInput) {
     return prisma.$transaction(async (tx) => {
-      // Mark any prior active evaluation as SUPERSEDED
-      await tx.evaluation.updateMany({
-        where: {
-          questionAttemptId: input.questionAttemptId,
-          status: { in: [EvaluationStatus.COMPLETED, EvaluationStatus.PENDING, EvaluationStatus.PROCESSING] },
-        },
-        data: {
-          status: EvaluationStatus.SUPERSEDED,
-        },
-      });
+      // Only supersede prior COMPLETED evaluations if the new evaluation is COMPLETED
+      if (input.status === EvaluationStatus.COMPLETED) {
+        await tx.evaluation.updateMany({
+          where: {
+            questionAttemptId: input.questionAttemptId,
+            status: { in: [EvaluationStatus.COMPLETED, EvaluationStatus.PENDING, EvaluationStatus.PROCESSING] },
+          },
+          data: {
+            status: EvaluationStatus.SUPERSEDED,
+          },
+        });
+      } else {
+        await tx.evaluation.updateMany({
+          where: {
+            questionAttemptId: input.questionAttemptId,
+            status: { in: [EvaluationStatus.PENDING, EvaluationStatus.PROCESSING] },
+          },
+          data: {
+            status: EvaluationStatus.SUPERSEDED,
+          },
+        });
+      }
 
       // Count existing versions
       const count = await tx.evaluation.count({
@@ -249,9 +261,41 @@ export class EvaluationRepository {
    * Retrieves the latest active evaluation for a given QuestionAttempt.
    */
   public static async getLatestByAttemptId(questionAttemptId: string) {
+    const completed = await prisma.evaluation.findFirst({
+      where: {
+        questionAttemptId,
+        status: EvaluationStatus.COMPLETED,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        criterionResults: {
+          include: {
+            evidence: true,
+          },
+        },
+        issues: true,
+        questionAttempt: {
+          include: {
+            question: true,
+            pages: {
+              include: {
+                page: true,
+              },
+            },
+            regions: true,
+          },
+        },
+      },
+    });
+
+    if (completed) return completed;
+
     return prisma.evaluation.findFirst({
       where: {
         questionAttemptId,
+        status: { not: EvaluationStatus.SUPERSEDED },
       },
       orderBy: {
         createdAt: 'desc',
