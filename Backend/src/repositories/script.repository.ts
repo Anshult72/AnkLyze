@@ -266,7 +266,10 @@ export class ScriptRepository {
           select: { id: true, name: true, code: true },
         },
         batch: {
-          select: { id: true, batchCode: true },
+          select: { id: true, batchCode: true, status: true },
+        },
+        createdBy: {
+          select: { id: true, fullName: true, email: true },
         },
       },
     });

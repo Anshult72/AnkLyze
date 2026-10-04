@@ -409,7 +409,10 @@ export class ScriptService {
    * Retrieves single script details (safe examiner-anonymized metadata)
    */
   async getScriptDetails(scriptId: string) {
-    const script = await this.repo.findScriptById(scriptId);
+    let script = await this.repo.findScriptById(scriptId);
+    if (!script) {
+      script = await this.repo.findScriptByCode(scriptId);
+    }
     if (!script) {
       throw new Error(`SCRIPT_NOT_FOUND: Sheet with ID ${scriptId} does not exist`);
     }

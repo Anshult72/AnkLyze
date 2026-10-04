@@ -67,8 +67,9 @@ export class ReconstructionRepository {
    * Exam, Subject (with Question paper definitions), and Pages (with latest OCR results).
    */
   public async findScriptForReconstruction(scriptId: string) {
-    return prisma.answerScript.findUnique({
-      where: { id: scriptId },
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scriptId);
+    return prisma.answerScript.findFirst({
+      where: isUuid ? { id: scriptId } : { scriptCode: scriptId },
       include: {
         exam: {
           select: { id: true, code: true, title: true },

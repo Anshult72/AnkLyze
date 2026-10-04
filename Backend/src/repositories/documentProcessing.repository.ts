@@ -42,8 +42,9 @@ export class DocumentProcessingRepository {
    * Retrieves an answer script with all pages and their OCR results
    */
   public async findScriptWithPages(scriptId: string) {
-    return prisma.answerScript.findUnique({
-      where: { id: scriptId },
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scriptId);
+    return prisma.answerScript.findFirst({
+      where: isUuid ? { id: scriptId } : { scriptCode: scriptId },
       include: {
         exam: {
           select: { id: true, code: true, title: true },
