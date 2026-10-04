@@ -126,7 +126,13 @@ export class EvaluationService {
     const attempt: any = await prisma.questionAttempt.findUnique({
       where: { id: questionAttemptId },
       include: {
-        question: true,
+        question: {
+          include: {
+            criteria: {
+              orderBy: { orderIndex: 'asc' },
+            },
+          },
+        },
         script: {
           include: {
             exam: true,
@@ -135,7 +141,14 @@ export class EvaluationService {
         },
         pages: {
           include: {
-            page: true,
+            page: {
+              include: {
+                ocrResults: {
+                  orderBy: { version: 'desc' },
+                  take: 1,
+                },
+              },
+            },
           },
           orderBy: { pageOrder: 'asc' },
         },
@@ -184,7 +197,9 @@ export class EvaluationService {
       },
     });
 
-    // Extract criteria from approved rubric analysis, or construct default criteria from question max marks
+    const maxMarks = Number(attempt.question?.maximumMarks ?? (attempt.question as any)?.maxMarks ?? 5);
+
+    // Extract criteria from approved rubric analysis, question criteria, or construct default criteria from question max marks
     let rubricCriteria: EvaluationCriterionInput[] = [];
     let rubricQuestion = rubricAnalysis?.questions?.[0];
 
@@ -197,13 +212,22 @@ export class EvaluationService {
         partialCreditAllowed: c.partialCreditAllowed,
         alternateMethodAccepted: c.alternateMethodAccepted,
       }));
+    } else if (attempt.question?.criteria && attempt.question.criteria.length > 0) {
+      rubricCriteria = attempt.question.criteria.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        description: c.description || undefined,
+        maximumMarks: c.maximumMarks,
+        partialCreditAllowed: c.partialCreditAllowed,
+        alternateMethodAccepted: c.alternateMethodAccepted,
+      }));
     } else {
       rubricCriteria = [
         {
           id: `crit-${attempt.question?.id || attempt.questionId}-default`,
           name: 'Overall Correctness & Complete Solution',
-          description: `Standard solution meeting expected answer guidelines for ${attempt.question?.label || 'Question'}`,
-          maximumMarks: attempt.question?.maxMarks || 5,
+          description: `Standard solution meeting expected answer guidelines for Question ${attempt.question?.questionNumber || ''}`,
+          maximumMarks: maxMarks,
           partialCreditAllowed: true,
           alternateMethodAccepted: true,
         },
@@ -211,7 +235,6 @@ export class EvaluationService {
     }
 
     // Deterministic pre-validation: Max marks must be positive
-    const maxMarks = attempt.question?.maxMarks || 5;
     if (maxMarks <= 0) {
       throw new Error(`Question maxMarks must be greater than 0, got ${maxMarks}`);
     }
@@ -240,8 +263,9 @@ export class EvaluationService {
     // Collect text from pages
     if (attempt.pages) {
       for (const ap of attempt.pages) {
-        if (ap.page?.ocrCleanedText || ap.page?.ocrRawText) {
-          const pageText = ap.page.ocrCleanedText || ap.page.ocrRawText || '';
+        const pageOcr = ap.page?.ocrResults?.[0]?.fullText;
+        const pageText = pageOcr || (ap.page as any)?.ocrCleanedText || (ap.page as any)?.ocrRawText || '';
+        if (pageText) {
           reconstructedText += `--- Page ${ap.pageNumber} ---\n${pageText}\n\n`;
         }
       }
@@ -268,12 +292,15 @@ export class EvaluationService {
       }
     }
 
+    const qNum = attempt.question?.questionNumber || '1';
+    const qLabel = `Question ${qNum}`;
+
     // 6. Build prompts
     const systemPrompt = buildEvaluationSystemPrompt();
     const userPrompt = buildEvaluationUserPrompt({
       questionAttemptId: attempt.id,
-      questionNumber: attempt.question?.questionNumber || 'Q1',
-      questionLabel: attempt.question?.label || 'Question 1',
+      questionNumber: qNum,
+      questionLabel: qLabel,
       questionText: attempt.question?.questionText || 'Answer question according to syllabus',
       maxMarks,
       rubricCriteria,
@@ -293,7 +320,7 @@ export class EvaluationService {
       details: {
         questionAttemptId: attempt.id,
         questionId: attempt.questionId,
-        questionLabel: attempt.question?.label,
+        questionLabel: qLabel,
         maxMarks,
         primaryProvider: this.primaryProvider.providerName,
       },
@@ -310,16 +337,33 @@ export class EvaluationService {
     let fallbackReason: string | undefined;
     let validatedData: EvaluationAIResponse | null = null;
 
-    // Collect page images if available
+    // Collect page images if available (up to 2 pages for multimodal grounding)
     const pageImages: Array<{ mimeType: string; base64Data: string; pageNumber?: number }> = [];
     if (attempt.pages) {
-      for (const ap of attempt.pages) {
-        if (ap.page && (ap.page as any).base64Data) {
+      for (const ap of attempt.pages.slice(0, 2)) {
+        if ((ap.page as any)?.base64Data) {
           pageImages.push({
             mimeType: 'image/jpeg',
             base64Data: (ap.page as any).base64Data,
             pageNumber: ap.pageNumber,
           });
+        } else if (ap.page?.imageReference && ap.page.imageReference.startsWith('http')) {
+          try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 4000);
+            const imgRes = await fetch(ap.page.imageReference, { signal: controller.signal });
+            clearTimeout(tid);
+            if (imgRes.ok) {
+              const buf = await imgRes.arrayBuffer();
+              pageImages.push({
+                mimeType: 'image/jpeg',
+                base64Data: Buffer.from(buf).toString('base64'),
+                pageNumber: ap.pageNumber,
+              });
+            }
+          } catch (e: any) {
+            logger.debug({ err: e.message, pageNumber: ap.pageNumber }, 'Page image fetch skipped');
+          }
         }
       }
     }
@@ -646,8 +690,23 @@ export class EvaluationService {
 
       // 4. Evidence Grounding -> Strictly REJECT fake pages or fake regions
       for (const ev of c.evidence) {
+        if (!ev.pageId && ev.pageNumber) {
+          const matchedPage = attempt.pages?.find((p: any) => p.pageNumber === ev.pageNumber);
+          if (matchedPage) {
+            ev.pageId = matchedPage.pageId;
+          }
+        } else if (!ev.pageId && attempt.pages?.length === 1) {
+          ev.pageId = attempt.pages[0].pageId;
+          ev.pageNumber = attempt.pages[0].pageNumber;
+        }
+
         if (ev.pageId && !validPageIds.has(ev.pageId)) {
-          throw new Error(`AI evidence referenced nonexistent pageId '${ev.pageId}' for criterion '${c.criterionId}'`);
+          const matchedPage = attempt.pages?.find((p: any) => p.pageNumber === ev.pageNumber || p.pageId === ev.pageId);
+          if (matchedPage) {
+            ev.pageId = matchedPage.pageId;
+          } else {
+            throw new Error(`AI evidence referenced nonexistent pageId '${ev.pageId}' for criterion '${c.criterionId}'`);
+          }
         }
 
         if (ev.answerRegionId && !validRegionIds.has(ev.answerRegionId)) {
