@@ -83,10 +83,10 @@ const envSchema = z.object({
     .default(""),
   OPENROUTER_MODEL: z
     .string()
-    .default("google/gemini-2.5-flash"),
+    .default("qwen/qwen3.8-27b"),
   OPENROUTER_VISION_MODEL: z
     .string()
-    .default("google/gemini-2.5-flash"),
+    .default("qwen/qwen3.8-27b"),
   AI_REQUEST_TIMEOUT_MS: z
     .string()
     .default("20000")
@@ -227,8 +227,8 @@ function validateEnv(): EnvConfig {
       GROQ_API_KEY: process.env.GROQ_API_KEY || "",
       GROQ_MODEL: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
       OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
-      OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
-      OPENROUTER_VISION_MODEL: process.env.OPENROUTER_VISION_MODEL || "google/gemini-2.5-flash",
+      OPENROUTER_MODEL: (process.env.OPENROUTER_MODEL === "google/gemini-2.5-flash" ? undefined : process.env.OPENROUTER_MODEL) || "qwen/qwen3.8-27b",
+      OPENROUTER_VISION_MODEL: (process.env.OPENROUTER_VISION_MODEL === "google/gemini-2.5-flash" ? undefined : process.env.OPENROUTER_VISION_MODEL) || "qwen/qwen3.8-27b",
       AI_REQUEST_TIMEOUT_MS: parseInt(process.env.AI_REQUEST_TIMEOUT_MS || "20000", 10),
       RUBRIC_PROMPT_VERSION: process.env.RUBRIC_PROMPT_VERSION || "rubric-analysis-v1",
       GEMINI_VISION_MODEL: process.env.GEMINI_VISION_MODEL || "gemini-1.5-flash",

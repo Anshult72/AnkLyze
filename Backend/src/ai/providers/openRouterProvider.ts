@@ -11,8 +11,10 @@ export class OpenRouterProvider implements IAIProvider {
 
   constructor(apiKey?: string, model?: string, visionModel?: string) {
     this.apiKey = apiKey || process.env.OPENROUTER_API_KEY || '';
-    this.model = model || process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash';
-    this.visionModel = visionModel || process.env.OPENROUTER_VISION_MODEL || 'google/gemini-2.5-flash';
+    const rawModel = model || process.env.OPENROUTER_MODEL || 'qwen/qwen3.8-27b';
+    this.model = rawModel === 'google/gemini-2.5-flash' ? 'qwen/qwen3.8-27b' : rawModel;
+    const rawVision = visionModel || process.env.OPENROUTER_VISION_MODEL || 'qwen/qwen3.8-27b';
+    this.visionModel = rawVision === 'google/gemini-2.5-flash' ? 'qwen/qwen3.8-27b' : rawVision;
   }
 
   async generateRubricAnalysis(
