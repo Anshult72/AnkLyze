@@ -1,4 +1,4 @@
-export type AIProviderType = 'gemini' | 'groq' | 'mock';
+export type AIProviderType = 'gemini' | 'groq' | 'openrouter' | 'mock';
 
 export type ConfidenceBand = 'HIGH' | 'MEDIUM' | 'LOW';
 

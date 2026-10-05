@@ -60,6 +60,10 @@ export interface QuestionData {
   rubricItems: RubricCriterion[];
   evidenceItems: EvidenceObservation[];
   detectedRegionNote: string;
+  aiProvider?: string;
+  aiModel?: string;
+  attemptId?: string;
+  evaluationId?: string;
   riskAssessment?: RiskAssessmentData;
   doubleEvaluationResult?: DoubleEvaluationData;
 }

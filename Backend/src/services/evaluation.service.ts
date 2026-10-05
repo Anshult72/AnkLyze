@@ -17,8 +17,8 @@ import { EvaluationStatus, QuestionAttemptState, RubricStatus, DecisionType, Dec
 import { IAIProvider } from '../ai/providers/aiProvider.interface';
 import { GeminiProvider } from '../ai/providers/geminiProvider';
 import { GroqProvider } from '../ai/providers/groqProvider';
+import { OpenRouterProvider } from '../ai/providers/openRouterProvider';
 import { MockAIProvider } from '../ai/providers/mockProvider';
-import { AIProviderError } from '../ai/types';
 import {
   buildEvaluationSystemPrompt,
   buildEvaluationUserPrompt,
@@ -51,9 +51,22 @@ export interface EvaluationExecutionOptions {
 export class EvaluationService {
   private primaryProvider: IAIProvider;
   private fallbackProvider?: IAIProvider;
+  private providerChain: IAIProvider[] = [];
   private timeoutMs: number;
   private promptVersion: string;
   private pipelineVersion: string;
+
+  public getPrimaryProvider(): IAIProvider {
+    return this.primaryProvider;
+  }
+
+  public getFallbackProvider(): IAIProvider | undefined {
+    return this.fallbackProvider;
+  }
+
+  public getProviderChain(): IAIProvider[] {
+    return this.providerChain;
+  }
 
   constructor(
     primaryProvider?: IAIProvider,
@@ -67,46 +80,62 @@ export class EvaluationService {
     if (primaryProvider) {
       this.primaryProvider = primaryProvider;
       this.fallbackProvider = fallbackProvider;
+      this.providerChain = [primaryProvider];
+      if (fallbackProvider) this.providerChain.push(fallbackProvider);
     } else {
-      // Resolve primary provider
-      if (config.AI_PRIMARY_PROVIDER === 'mock') {
-        this.primaryProvider = new MockAIProvider({
-          providerName: 'mock',
-          model: 'mock-evaluator-v1',
-        });
-      } else if (config.AI_PRIMARY_PROVIDER === 'groq') {
-        this.primaryProvider = new GroqProvider(
-          config.GROQ_API_KEY,
-          config.GROQ_MODEL,
-          config.GROQ_VISION_MODEL
-        );
-      } else {
-        this.primaryProvider = new GeminiProvider(
-          config.GEMINI_API_KEY,
-          config.GEMINI_MODEL,
-          config.GEMINI_VISION_MODEL
-        );
+      // Build provider chain from AI_PROVIDER_CHAIN (default: "gemini,groq,openrouter")
+      const chainNames = (config.AI_PROVIDER_CHAIN || 'gemini,groq,openrouter')
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+
+      const resolvedProviders: IAIProvider[] = [];
+      for (const name of chainNames) {
+        if (name === 'gemini') {
+          resolvedProviders.push(
+            new GeminiProvider(
+              config.GEMINI_API_KEY,
+              config.GEMINI_MODEL,
+              config.GEMINI_VISION_MODEL
+            )
+          );
+        } else if (name === 'groq') {
+          resolvedProviders.push(
+            new GroqProvider(
+              config.GROQ_API_KEY,
+              config.GROQ_MODEL,
+              config.GROQ_VISION_MODEL
+            )
+          );
+        } else if (name === 'openrouter') {
+          resolvedProviders.push(
+            new OpenRouterProvider(
+              config.OPENROUTER_API_KEY,
+              config.OPENROUTER_MODEL,
+              config.OPENROUTER_VISION_MODEL
+            )
+          );
+        } else if (name === 'mock') {
+          resolvedProviders.push(
+            new MockAIProvider({
+              providerName: 'mock',
+              model: 'mock-evaluator-v1',
+            })
+          );
+        }
       }
 
-      // Resolve fallback provider
-      if (config.AI_FALLBACK_PROVIDER === 'mock') {
-        this.fallbackProvider = new MockAIProvider({
-          providerName: 'mock-fallback',
-          model: 'mock-evaluator-fallback',
-        });
-      } else if (config.AI_FALLBACK_PROVIDER === 'groq' && config.AI_PRIMARY_PROVIDER !== 'groq') {
-        this.fallbackProvider = new GroqProvider(
-          config.GROQ_API_KEY,
-          config.GROQ_MODEL,
-          config.GROQ_VISION_MODEL
-        );
-      } else if (config.AI_FALLBACK_PROVIDER === 'gemini' && config.AI_PRIMARY_PROVIDER !== 'gemini') {
-        this.fallbackProvider = new GeminiProvider(
-          config.GEMINI_API_KEY,
-          config.GEMINI_MODEL,
-          config.GEMINI_VISION_MODEL
-        );
-      }
+      this.providerChain =
+        resolvedProviders.length > 0
+          ? resolvedProviders
+          : [
+              new GeminiProvider(config.GEMINI_API_KEY, config.GEMINI_MODEL, config.GEMINI_VISION_MODEL),
+              new GroqProvider(config.GROQ_API_KEY, config.GROQ_MODEL, config.GROQ_VISION_MODEL),
+              new OpenRouterProvider(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL, config.OPENROUTER_VISION_MODEL),
+            ];
+
+      this.primaryProvider = this.providerChain[0];
+      this.fallbackProvider = this.providerChain[1];
     }
   }
 
@@ -368,177 +397,129 @@ export class EvaluationService {
       }
     }
 
-    // Attempt Primary Provider
-    try {
-      if (this.primaryProvider.evaluateAnswer) {
-        rawResult = await this.primaryProvider.evaluateAnswer({
+    // Iterate through provider chain (Gemini -> Groq -> OpenRouter)
+    const attemptedErrors: Array<{ provider: string; model: string; error: string }> = [];
+    let successfulProvider: IAIProvider | null = null;
+
+    for (let i = 0; i < this.providerChain.length; i++) {
+      const currentProvider = this.providerChain[i];
+      if (!currentProvider || !currentProvider.evaluateAnswer) continue;
+
+      try {
+        logger.info(
+          {
+            provider: currentProvider.providerName,
+            model: currentProvider.model,
+            attemptIndex: i + 1,
+            totalInChain: this.providerChain.length,
+          },
+          'ANKLYZE Phase 10: Attempting AI evaluation provider in chain'
+        );
+
+        rawResult = await currentProvider.evaluateAnswer({
           systemPrompt,
           userPrompt,
           pageImages: pageImages.length > 0 ? pageImages : undefined,
           timeoutMs: this.timeoutMs,
         });
 
-        // Strict Post-AI Validation on Primary Result
+        // Strict Post-AI Validation on Provider Result
         validatedData = this.validateAndGroundAiResponse(
           rawResult.rawJsonText,
           attempt,
           rubricCriteria,
           maxMarks
         );
-      } else {
-        throw new AIProviderError('Primary provider does not support evaluateAnswer', this.primaryProvider.providerName, true);
-      }
-    } catch (primaryErr: any) {
-      logger.warn(
-        { err: primaryErr.message, provider: this.primaryProvider.providerName },
-        'ANKLYZE Phase 10: Primary AI evaluation provider failed or returned invalid response'
-      );
 
-      await AuditService.recordEvent({
-        event: 'AI_EVALUATION_VALIDATION_FAILED',
-        userId: options.userId,
-        details: {
-          questionAttemptId: attempt.id,
-          provider: this.primaryProvider.providerName,
-          error: primaryErr.message,
-        },
-      });
-
-      // Attempt fallback if available
-      if (this.fallbackProvider && this.fallbackProvider.evaluateAnswer) {
-        fallbackUsed = true;
-        fallbackReason = primaryErr.message;
-        logger.info(
-          { fallbackProvider: this.fallbackProvider.providerName },
-          'ANKLYZE Phase 10: Invoking fallback AI provider for evaluation'
+        successfulProvider = currentProvider;
+        if (i > 0) {
+          fallbackUsed = true;
+          fallbackReason = attemptedErrors.map((e) => `${e.provider}: ${e.error}`).join('; ');
+        }
+        break; // Successfully evaluated and validated!
+      } catch (providerErr: any) {
+        logger.warn(
+          {
+            err: providerErr.message,
+            provider: currentProvider.providerName,
+            model: currentProvider.model,
+          },
+          'ANKLYZE Phase 10: AI evaluation provider failed or returned invalid response, falling back'
         );
 
-        try {
-          rawResult = await this.fallbackProvider.evaluateAnswer({
-            systemPrompt,
-            userPrompt,
-            pageImages: pageImages.length > 0 ? pageImages : undefined,
-            timeoutMs: this.timeoutMs,
-          });
+        attemptedErrors.push({
+          provider: currentProvider.providerName,
+          model: currentProvider.model,
+          error: providerErr.message,
+        });
 
-          await AuditService.recordEvent({
-            event: 'AI_EVALUATION_FALLBACK',
-            userId: options.userId,
-            details: {
-              questionAttemptId: attempt.id,
-              primaryError: primaryErr.message,
-              fallbackProvider: this.fallbackProvider.providerName,
-            },
-          });
-
-          // Strict validation on fallback result
-          validatedData = this.validateAndGroundAiResponse(
-            rawResult.rawJsonText,
-            attempt,
-            rubricCriteria,
-            maxMarks
-          );
-        } catch (fallbackErr: any) {
-          logger.error(
-            { err: fallbackErr.message },
-            'ANKLYZE Phase 10: Fallback AI evaluation provider also failed or returned invalid response'
-          );
-          await AuditService.recordEvent({
-            event: 'AI_EVALUATION_FAILED',
-            userId: options.userId,
-            details: {
-              questionAttemptId: attempt.id,
-              primaryError: primaryErr.message,
-              fallbackError: fallbackErr.message,
-            },
-          });
-
-          // Create REQUIRES_REVIEW evaluation record so examiner is notified of AI validation failure
-          const failedEvaluation = await EvaluationRepository.createEvaluation({
-            questionAttemptId: attempt.id,
-            rubricVersion: rubricAnalysis?.version ? `v${rubricAnalysis.version}` : '1.0',
-            rubricAnalysisId: rubricAnalysis?.id,
-            provider: this.primaryProvider.providerName,
-            model: 'failed-validation',
-            promptVersion: this.promptVersion,
-            pipelineVersion: this.pipelineVersion,
-            status: EvaluationStatus.REQUIRES_REVIEW,
-            suggestedMarks: 0,
-            maxMarks,
-            confidenceScore: 0.0,
-            confidenceBand: 'LOW',
-            assessmentSummary: `AI evaluation failed validation: ${primaryErr.message}`,
-            requiresReview: true,
-            reviewReason: primaryErr.message,
-            fallbackUsed: true,
-            fallbackReason: fallbackErr.message,
-            criteria: rubricCriteria.map(c => ({
-              criterionId: c.id,
-              criterionSatisfied: 'NOT_ASSESSABLE',
-              suggestedMarks: 0,
-              maxMarks: c.maximumMarks,
-              confidenceScore: 0.0,
-              reasoning: 'AI evaluation validation failure',
-              evidence: [],
-            })),
-            issues: [
-              {
-                issueType: 'RUBRIC_MISMATCH',
-                severity: 'HIGH',
-                message: `AI Evaluation validation rejected: ${primaryErr.message}; Fallback: ${fallbackErr.message}`,
-                requiresReview: true,
-              },
-            ],
-          });
-
-          return failedEvaluation;
-        }
-      } else {
         await AuditService.recordEvent({
-          event: 'AI_EVALUATION_FAILED',
+          event: 'AI_EVALUATION_FALLBACK',
           userId: options.userId,
           details: {
             questionAttemptId: attempt.id,
-            error: primaryErr.message,
+            failedProvider: currentProvider.providerName,
+            error: providerErr.message,
+            nextProvider: this.providerChain[i + 1]?.providerName || 'none',
           },
         });
-
-        // Persist REQUIRES_REVIEW evaluation record
-        return EvaluationRepository.createEvaluation({
-          questionAttemptId: attempt.id,
-          rubricVersion: rubricAnalysis?.version ? `v${rubricAnalysis.version}` : '1.0',
-          rubricAnalysisId: rubricAnalysis?.id,
-          provider: this.primaryProvider.providerName,
-          model: 'failed-validation',
-          promptVersion: this.promptVersion,
-          pipelineVersion: this.pipelineVersion,
-          status: EvaluationStatus.REQUIRES_REVIEW,
-          suggestedMarks: 0,
-          maxMarks,
-          confidenceScore: 0.0,
-          confidenceBand: 'LOW',
-          assessmentSummary: `AI evaluation failed validation: ${primaryErr.message}`,
-          requiresReview: true,
-          reviewReason: primaryErr.message,
-          criteria: rubricCriteria.map(c => ({
-            criterionId: c.id,
-            criterionSatisfied: 'NOT_ASSESSABLE',
-            suggestedMarks: 0,
-            maxMarks: c.maximumMarks,
-            confidenceScore: 0.0,
-            reasoning: 'AI evaluation validation failure',
-            evidence: [],
-          })),
-          issues: [
-            {
-              issueType: 'RUBRIC_MISMATCH',
-              severity: 'HIGH',
-              message: `AI Evaluation validation rejected: ${primaryErr.message}`,
-              requiresReview: true,
-            },
-          ],
-        });
       }
+    }
+
+    if (!successfulProvider || !rawResult || !validatedData) {
+      logger.error(
+        { attemptedErrors, questionAttemptId: attempt.id },
+        'ANKLYZE Phase 10: All AI evaluation providers in chain failed'
+      );
+
+      await AuditService.recordEvent({
+        event: 'AI_EVALUATION_FAILED',
+        userId: options.userId,
+        details: {
+          questionAttemptId: attempt.id,
+          attemptedErrors,
+        },
+      });
+
+      // Create REQUIRES_REVIEW evaluation record so examiner is notified of AI validation failure
+      const failedEvaluation = await EvaluationRepository.createEvaluation({
+        questionAttemptId: attempt.id,
+        rubricVersion: rubricAnalysis?.version ? `v${rubricAnalysis.version}` : '1.0',
+        rubricAnalysisId: rubricAnalysis?.id,
+        provider: attemptedErrors[0]?.provider || 'ai-pipeline',
+        model: 'failed-validation',
+        promptVersion: this.promptVersion,
+        pipelineVersion: this.pipelineVersion,
+        status: EvaluationStatus.REQUIRES_REVIEW,
+        suggestedMarks: 0,
+        maxMarks,
+        confidenceScore: 0.0,
+        confidenceBand: 'LOW',
+        assessmentSummary: `AI evaluation unavailable across providers: ${attemptedErrors.map((e) => `${e.provider}: ${e.error}`).join('; ')}`,
+        requiresReview: true,
+        reviewReason: attemptedErrors.map((e) => `${e.provider}: ${e.error}`).join('; '),
+        fallbackUsed: attemptedErrors.length > 1,
+        fallbackReason: attemptedErrors.slice(1).map((e) => `${e.provider}: ${e.error}`).join('; '),
+        criteria: rubricCriteria.map((c) => ({
+          criterionId: c.id,
+          criterionSatisfied: 'NOT_ASSESSABLE',
+          suggestedMarks: 0,
+          maxMarks: c.maximumMarks,
+          confidenceScore: 0.0,
+          reasoning: 'AI evaluation provider failure - requires human review',
+          evidence: [],
+        })),
+        issues: [
+          {
+            issueType: 'PROVIDER_ERROR',
+            severity: 'HIGH',
+            message: `All AI providers failed: ${attemptedErrors.map((e) => `${e.provider}: ${e.error}`).join('; ')}`,
+            requiresReview: true,
+          },
+        ],
+      });
+
+      return failedEvaluation;
     }
 
     if (!rawResult || !rawResult.rawJsonText || !validatedData) {

@@ -1,6 +1,7 @@
 import { IAIProvider } from './providers/aiProvider.interface';
 import { GeminiProvider } from './providers/geminiProvider';
 import { GroqProvider } from './providers/groqProvider';
+import { OpenRouterProvider } from './providers/openRouterProvider';
 import {
   RubricAnalysisInput,
   NormalizedRubricAnalysisResult,
@@ -43,6 +44,9 @@ export class AIService {
         case 'groq':
           this.primaryProvider = new GroqProvider(config.GROQ_API_KEY, config.GROQ_MODEL);
           break;
+        case 'openrouter':
+          this.primaryProvider = new OpenRouterProvider(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL);
+          break;
         default:
           this.primaryProvider = new GeminiProvider(config.GEMINI_API_KEY, config.GEMINI_MODEL);
           break;
@@ -56,6 +60,9 @@ export class AIService {
       switch (config.AI_FALLBACK_PROVIDER) {
         case 'groq':
           this.fallbackProvider = new GroqProvider(config.GROQ_API_KEY, config.GROQ_MODEL);
+          break;
+        case 'openrouter':
+          this.fallbackProvider = new OpenRouterProvider(config.OPENROUTER_API_KEY, config.OPENROUTER_MODEL);
           break;
         case 'gemini':
           this.fallbackProvider = new GeminiProvider(config.GEMINI_API_KEY, config.GEMINI_MODEL);

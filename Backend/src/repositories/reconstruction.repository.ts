@@ -250,11 +250,21 @@ export class ReconstructionRepository {
    * If version not specified, returns latest.
    */
   public async findReconstruction(scriptId: string, version?: number) {
+    let actualScriptId = scriptId;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scriptId);
+    if (!isUuid) {
+      const script = await prisma.answerScript.findFirst({
+        where: { scriptCode: scriptId },
+        select: { id: true },
+      });
+      if (script) actualScriptId = script.id;
+    }
+
     if (version) {
       return prisma.scriptReconstruction.findUnique({
         where: {
           scriptId_version: {
-            scriptId,
+            scriptId: actualScriptId,
             version,
           },
         },
@@ -274,7 +284,7 @@ export class ReconstructionRepository {
     }
 
     return prisma.scriptReconstruction.findFirst({
-      where: { scriptId },
+      where: { scriptId: actualScriptId },
       orderBy: { version: 'desc' },
       include: {
         attempts: {
@@ -295,8 +305,18 @@ export class ReconstructionRepository {
    * Retrieves all attempts for a given script (from its latest reconstruction).
    */
   public async findAttemptsByScriptId(scriptId: string) {
+    let actualScriptId = scriptId;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scriptId);
+    if (!isUuid) {
+      const script = await prisma.answerScript.findFirst({
+        where: { scriptCode: scriptId },
+        select: { id: true },
+      });
+      if (script) actualScriptId = script.id;
+    }
+
     const latestRecon = await prisma.scriptReconstruction.findFirst({
-      where: { scriptId },
+      where: { scriptId: actualScriptId },
       orderBy: { version: 'desc' },
       select: { id: true },
     });
@@ -312,6 +332,16 @@ export class ReconstructionRepository {
           orderBy: { pageOrder: 'asc' },
         },
         regions: true,
+        evaluations: {
+          orderBy: { version: 'desc' },
+          take: 1,
+          include: {
+            criterionResults: true,
+            decisionHistory: {
+              orderBy: { version: 'desc' },
+            },
+          },
+        },
       },
     });
   }

@@ -62,6 +62,8 @@ interface EvaluationPanelProps {
   onFinalize?: () => void;
   onReopen?: (reason: string) => void;
   decisionHistory?: DecisionVersionItem[];
+  onTriggerEvaluation?: () => Promise<void>;
+  isEvaluating?: boolean;
 }
 
 export default function EvaluationPanel({
@@ -78,6 +80,8 @@ export default function EvaluationPanel({
   onFinalize,
   onReopen,
   decisionHistory = [],
+  onTriggerEvaluation,
+  isEvaluating = false,
 }: EvaluationPanelProps) {
   const [inputVal, setInputVal] = useState<string>(examinerMarks.toString());
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -345,22 +349,49 @@ export default function EvaluationPanel({
                 <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
                   Advisory Only
                 </span>
+                {question.aiProvider && (
+                  <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-mono">
+                    Evaluated via {question.aiProvider.toUpperCase()}
+                  </span>
+                )}
               </div>
-              <div className="flex items-center space-x-3 text-xs text-slate-500 font-mono">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-mono">
                 <span>Confidence: <strong className="text-slate-800 font-bold">{question.aiConfidence}%</strong></span>
                 <span>•</span>
                 <span>Status: <strong className="text-emerald-700 font-bold">Suggestion Ready</strong></span>
+                {question.aiModel && (
+                  <>
+                    <span>•</span>
+                    <span className="text-slate-400 font-sans text-[11px] truncate max-w-[200px]" title={question.aiModel}>
+                      Model: {question.aiModel}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* AI Score Display */}
-            <div className="flex items-baseline space-x-1 font-mono text-right shrink-0">
-              <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 tracking-tight font-serif">
-                {question.aiSuggestedMarks}
-              </span>
-              <span className="text-sm font-semibold text-slate-500">
-                / {question.maxMarks}
-              </span>
+            {/* AI Score Display & Trigger Button */}
+            <div className="flex items-center space-x-3 shrink-0">
+              {onTriggerEvaluation && (
+                <button
+                  type="button"
+                  onClick={onTriggerEvaluation}
+                  disabled={isEvaluating || decisionStatus === "FINAL"}
+                  className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Run or refresh live AI evaluation for this question"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${isEvaluating ? "animate-spin text-blue-600" : ""}`} />
+                  <span className="hidden sm:inline">{isEvaluating ? "Evaluating..." : "Evaluate with AI"}</span>
+                </button>
+              )}
+              <div className="flex items-baseline space-x-1 font-mono text-right shrink-0">
+                <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 tracking-tight font-serif">
+                  {question.aiSuggestedMarks}
+                </span>
+                <span className="text-sm font-semibold text-slate-500">
+                  / {question.maxMarks}
+                </span>
+              </div>
             </div>
           </div>
 

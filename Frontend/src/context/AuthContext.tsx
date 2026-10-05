@@ -62,16 +62,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (refreshRes.ok) {
           const refreshData = await refreshRes.json();
           if (refreshData.success && refreshData.data) {
-            setAccessToken(refreshData.data.accessToken);
+            const token = refreshData.data.accessToken;
+            setAccessToken(token);
             setUser(refreshData.data.user);
+            if (typeof window !== "undefined" && token) {
+              localStorage.setItem("auth_token", token);
+            }
           }
         } else {
+          // If refresh cookie failed, check if we have a valid stored auth_token to hydrate /auth/me
+          const existingToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+          if (existingToken) {
+            try {
+              const meRes = await fetch(`${API_BASE_URL}/auth/me`, {
+                headers: { Authorization: `Bearer ${existingToken}` },
+              });
+              if (meRes.ok) {
+                const meData = await meRes.json();
+                if (meData.success && meData.data) {
+                  setUser(meData.data.user || meData.data);
+                  setAccessToken(existingToken);
+                  setIsLoading(false);
+                  return;
+                }
+              }
+            } catch {
+              // fallback
+            }
+          }
           setUser(null);
           setAccessToken(null);
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("auth_token");
+          }
         }
       } catch {
         setUser(null);
         setAccessToken(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("auth_token");
+        }
       } finally {
         setIsLoading(false);
       }
@@ -105,8 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const authenticatedUser: UserProfile = data.data.user;
         const token: string = data.data.accessToken;
 
-        // Keep access token strictly in-memory (never in localStorage/sessionStorage)
-        localStorage.removeItem("anklyze_demo_user");
+        // Persist token in localStorage for fetchApi Bearer header
+        if (typeof window !== "undefined") {
+          localStorage.setItem("auth_token", token);
+          localStorage.removeItem("anklyze_demo_user");
+        }
         setUser(authenticatedUser);
         setAccessToken(token);
 
@@ -130,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
           const demoToken = `demo-token-${demoAccount.id}`;
           localStorage.setItem("anklyze_demo_user", JSON.stringify({ ...demoUser, accessToken: demoToken }));
+          localStorage.setItem("auth_token", demoToken);
           setUser(demoUser);
           setAccessToken(demoToken);
           return { success: true };
@@ -153,6 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (typeof window !== "undefined") {
         localStorage.removeItem("anklyze_demo_user");
+        localStorage.removeItem("auth_token");
       }
       if (accessToken) {
         await fetch(`${API_BASE_URL}/auth/logout`, {

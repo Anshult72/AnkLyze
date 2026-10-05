@@ -121,12 +121,61 @@ function EvaluationWorkspaceContent() {
         // Build dynamic questions map
         const qMap: Record<string, QuestionData> = {};
         const qList = Array.isArray(rawQuestions) ? rawQuestions : [];
+        const initialScores: Record<string, number> = {};
+        const initialStatuses: Record<string, "DRAFT" | "FINAL"> = {};
+        const initialHistories: Record<string, DecisionVersionItem[]> = {};
+
         qList.forEach((q: any, idx: number) => {
           const qNumStr = String(q.questionNumber || idx + 1);
           const qKey = qNumStr.startsWith("Q") ? qNumStr : `Q${qNumStr.padStart(2, "0")}`;
           const matchingAttempt = attempts.find((a: any) =>
-            a.detectedQuestionLabel === qNumStr || a.question?.questionNumber === qNumStr
+            a.detectedQuestionLabel === qNumStr ||
+            a.question?.questionNumber === qNumStr ||
+            a.question?.questionNumber === String(idx + 1)
           );
+
+          const latestEval = matchingAttempt?.evaluations?.[0];
+          const aiMarks = latestEval?.suggestedMarks ?? matchingAttempt?.aiSuggestedMarks ?? (q.maximumMarks >= 5 ? 4.0 : q.maximumMarks >= 3 ? 2.5 : 1.5);
+          const aiConf = latestEval?.confidenceScore != null
+            ? Math.round(latestEval.confidenceScore * 100)
+            : matchingAttempt?.confidence != null
+            ? Math.round(matchingAttempt.confidence * 100)
+            : 90;
+          const examinerDecision = latestEval?.examinerDecision;
+          const examinerAwarded = latestEval?.examinerMarks;
+          const assignedScore = examinerAwarded ?? aiMarks;
+          const isFinal = examinerDecision === "ACCEPTED" || examinerDecision === "OVERRIDDEN";
+
+          initialScores[qKey] = assignedScore;
+          initialStatuses[qKey] = isFinal ? "FINAL" : "DRAFT";
+
+          // If criteria results exist in latestEval, map them
+          const criterionResults = latestEval?.criterionResults || [];
+          const rubricItems = (q.criteria && q.criteria.length > 0 ? q.criteria : []).map((c: any) => {
+            const matchedResult = criterionResults.find((cr: any) => cr.criterionId === c.id);
+            return {
+              id: c.id,
+              label: c.description || c.title || "Evaluation Criterion",
+              maxMarks: c.maxMarks || 1,
+              suggestedMarks: matchedResult?.suggestedMarks ?? matchedResult?.marksAwarded ?? c.maxMarks ?? 1,
+              matched: matchedResult ? matchedResult.status !== "NOT_MET" : true,
+              note: matchedResult?.evidenceNote || matchedResult?.reasoning || undefined,
+            };
+          });
+
+          if (latestEval?.decisionHistory?.length) {
+            initialHistories[qKey] = latestEval.decisionHistory.map((dh: any, dhIdx: number) => ({
+              id: dh.id || `dec-${dhIdx}`,
+              version: dh.version || dhIdx + 1,
+              decisionType: dh.decisionType,
+              status: dh.status === "FINAL" ? "FINAL" : "DRAFT",
+              totalMarks: dh.totalMarksAwarded ?? dh.totalMarks ?? assignedScore,
+              maxMarks: q.maximumMarks || 5,
+              examinerName: dh.examinerUser?.fullName || "Examiner",
+              timestamp: dh.createdAt || new Date().toISOString(),
+              notes: dh.examinerNotes || dh.notes,
+            }));
+          }
 
           qMap[qKey] = {
             questionNumber: qKey,
@@ -134,26 +183,24 @@ function EvaluationWorkspaceContent() {
             questionText: q.questionText || `Question ${qNumStr}`,
             maxMarks: q.maximumMarks || 5,
             pageNumber: matchingAttempt?.startPageNumber || Math.min(idx + 1, script.pageCount || 22),
-            aiSuggestedMarks: matchingAttempt?.aiSuggestedMarks ?? (q.maximumMarks >= 5 ? 4.0 : q.maximumMarks >= 3 ? 2.5 : 1.5),
-            aiConfidence: matchingAttempt?.confidence ?? 0.90,
-            aiConfidenceRating: "High confidence",
+            aiSuggestedMarks: aiMarks,
+            aiConfidence: aiConf,
+            aiConfidenceRating: aiConf >= 85 ? "High confidence" : aiConf >= 60 ? "Medium confidence" : "Low confidence",
             aiConfidenceNote: "Evaluation criteria grounded in question rubric",
-            rubricItems: (q.criteria || []).map((c: any) => ({
-              id: c.id,
-              label: c.description || c.title || "Evaluation Criterion",
-              maxMarks: c.maxMarks || 1,
-              suggestedMarks: c.maxMarks || 1,
-              matched: true,
-            })),
+            aiProvider: latestEval?.provider,
+            aiModel: latestEval?.model,
+            attemptId: matchingAttempt?.id,
+            evaluationId: latestEval?.id,
+            rubricItems,
             evidenceItems: [
               {
                 id: `ev-${qKey}-1`,
-                text: `Answer response detected for ${qKey} on page ${Math.min(idx + 1, script.pageCount || 22)}`,
+                text: latestEval?.assessmentSummary || `Student response detected for Question ${qNumStr} on page ${matchingAttempt?.startPageNumber || Math.min(idx + 1, script.pageCount || 22)}`,
                 status: "positive",
                 sectionKey: "answer",
               },
             ],
-            detectedRegionNote: `Detected on page ${Math.min(idx + 1, script.pageCount || 22)}`,
+            detectedRegionNote: `Detected on page ${matchingAttempt?.startPageNumber || Math.min(idx + 1, script.pageCount || 22)}`,
           };
         });
 
@@ -175,14 +222,9 @@ function EvaluationWorkspaceContent() {
 
           if (isMounted) {
             setLiveDataset(constructedDataset);
-            const initialScores: Record<string, number> = {};
-            const initialStatuses: Record<string, "DRAFT" | "FINAL"> = {};
-            for (const [k, v] of Object.entries(qMap)) {
-              initialScores[k] = v.aiSuggestedMarks;
-              initialStatuses[k] = "DRAFT";
-            }
             setEvaluatedScores(initialScores);
             setDecisionStatuses(initialStatuses);
+            setDecisionHistories(initialHistories);
 
             const firstKey = Object.keys(qMap)[0];
             setCurrentQuestionId(firstKey);
@@ -286,6 +328,75 @@ function EvaluationWorkspaceContent() {
     setIsSaved(false);
   };
 
+  const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
+
+  const handleTriggerAiEvaluation = async () => {
+    if (!currentQuestion?.attemptId) {
+      showToast("No reconstructed attempt found for this question yet.");
+      return;
+    }
+    setIsEvaluating(true);
+    try {
+      const evalRes = await fetchApi<any>(`/question-attempts/${currentQuestion.attemptId}/evaluate`, {
+        method: "POST",
+        body: { forceRefresh: true },
+      });
+      if (evalRes?.success && evalRes.data) {
+        const evalData = evalRes.data;
+        const newSuggested = evalData.suggestedMarks ?? currentQuestion.maxMarks;
+        const newConfidence = evalData.confidenceScore != null ? Math.round(evalData.confidenceScore * 100) : 90;
+
+        setLiveDataset((prev) => {
+          if (!prev) return prev;
+          const q = prev.questions[currentQuestionId];
+          if (!q) return prev;
+          return {
+            ...prev,
+            questions: {
+              ...prev.questions,
+              [currentQuestionId]: {
+                ...q,
+                aiSuggestedMarks: newSuggested,
+                aiConfidence: newConfidence,
+                aiProvider: evalData.provider,
+                aiModel: evalData.model,
+                evaluationId: evalData.id,
+                rubricItems: (evalData.criterionResults && evalData.criterionResults.length > 0 ? evalData.criterionResults : q.rubricItems).map((c: any) => ({
+                  id: c.criterionId || c.id,
+                  label: c.criterion?.description || c.label || "Evaluation Criterion",
+                  maxMarks: c.maxMarks || 1,
+                  suggestedMarks: c.suggestedMarks ?? (c.maxMarks || 1),
+                  matched: c.status !== "NOT_MET",
+                  note: c.evidenceNote || c.reasoning || undefined,
+                })),
+                evidenceItems: [
+                  {
+                    id: `ev-${currentQuestionId}-live`,
+                    text: evalData.assessmentSummary || `Evaluated by ${evalData.provider}: score ${newSuggested}/${q.maxMarks}`,
+                    status: "positive",
+                    sectionKey: "answer",
+                  },
+                ],
+              },
+            },
+          };
+        });
+
+        setEvaluatedScores((prev) => ({
+          ...prev,
+          [currentQuestionId]: newSuggested,
+        }));
+        showToast(`AI Evaluation complete via ${evalData.provider || "AI"}: ${newSuggested}/${currentQuestion.maxMarks}`);
+      } else {
+        showToast(`Evaluation message: ${evalRes?.error?.message || "Completed"}`);
+      }
+    } catch (e: any) {
+      showToast(`Error evaluating question: ${e?.message || "Failed"}`);
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
   // Handle Save / Commit Draft
   const handleSave = async () => {
     const historyList = decisionHistories[currentQuestionId] || [];
@@ -304,18 +415,39 @@ function EvaluationWorkspaceContent() {
       notes: "Draft updated by examiner",
     };
 
-    // If an evaluation ID is associated with this attempt, persist via API
-    try {
-      await fetchApi<any>(`/evaluations/decision`, {
-        method: "PATCH",
-        body: {
-          decisionType: "SAVE_DRAFT",
-          totalMarksAwarded: currentScore,
-          examinerNotes: "Draft updated by examiner",
-        },
-      }).catch(() => null);
-    } catch (e) {
-      console.warn("Could not sync draft to remote API", e);
+    // Ensure evaluation record exists on backend
+    let evalId = currentQuestion.evaluationId;
+    if (!evalId && currentQuestion.attemptId) {
+      try {
+        const evalRes = await fetchApi<any>(`/question-attempts/${currentQuestion.attemptId}/evaluate`, {
+          method: "POST",
+          body: { forceRefresh: false },
+        });
+        if (evalRes?.success && evalRes.data?.id) {
+          evalId = evalRes.data.id;
+          currentQuestion.evaluationId = evalId;
+          currentQuestion.aiProvider = evalRes.data.provider;
+          currentQuestion.aiModel = evalRes.data.model;
+        }
+      } catch (err) {
+        console.warn("Could not auto-create evaluation record", err);
+      }
+    }
+
+    if (evalId) {
+      try {
+        await fetchApi<any>(`/evaluations/${evalId}/decisions`, {
+          method: "POST",
+          body: {
+            decisionType: "SAVE_DRAFT",
+            status: "DRAFT",
+            totalMarks: currentScore,
+            notes: "Draft updated by examiner",
+          },
+        });
+      } catch (e) {
+        console.warn("Could not sync draft to remote API", e);
+      }
     }
 
     setDecisionHistories((prev) => ({
@@ -345,17 +477,46 @@ function EvaluationWorkspaceContent() {
       notes: "Authoritative examiner decision confirmed and finalized.",
     };
 
-    try {
-      await fetchApi<any>(`/evaluations/decision`, {
-        method: "PATCH",
-        body: {
-          decisionType: "FINALIZE",
-          totalMarksAwarded: currentScore,
-          examinerNotes: "Authoritative examiner decision confirmed and finalized.",
-        },
-      }).catch(() => null);
-    } catch (e) {
-      console.warn("Could not sync finalization to remote API", e);
+    // Ensure evaluation record exists on backend
+    let evalId = currentQuestion.evaluationId;
+    if (!evalId && currentQuestion.attemptId) {
+      try {
+        const evalRes = await fetchApi<any>(`/question-attempts/${currentQuestion.attemptId}/evaluate`, {
+          method: "POST",
+          body: { forceRefresh: false },
+        });
+        if (evalRes?.success && evalRes.data?.id) {
+          evalId = evalRes.data.id;
+          currentQuestion.evaluationId = evalId;
+          currentQuestion.aiProvider = evalRes.data.provider;
+          currentQuestion.aiModel = evalRes.data.model;
+        }
+      } catch (err) {
+        console.warn("Could not auto-create evaluation record", err);
+      }
+    }
+
+    if (evalId) {
+      try {
+        const isDiff = Math.abs(currentScore - currentQuestion.aiSuggestedMarks) > 0.001;
+        await fetchApi<any>(`/evaluations/${evalId}/decision`, {
+          method: "PATCH",
+          body: {
+            decisionType: isDiff ? "OVERRIDDEN" : "ACCEPTED",
+            totalMarksAwarded: currentScore,
+            examinerNotes: "Authoritative examiner decision confirmed and finalized.",
+          },
+        });
+
+        await fetchApi<any>(`/evaluations/${evalId}/finalize`, {
+          method: "POST",
+          body: {
+            notes: "Authoritative examiner decision confirmed and finalized.",
+          },
+        });
+      } catch (e) {
+        console.warn("Could not sync finalization to remote API", e);
+      }
     }
 
     setDecisionHistories((prev) => ({
@@ -533,6 +694,8 @@ function EvaluationWorkspaceContent() {
                   onFinalize={handleFinalize}
                   onReopen={handleReopen}
                   decisionHistory={currentDecisionHistory}
+                  onTriggerEvaluation={handleTriggerAiEvaluation}
+                  isEvaluating={isEvaluating}
                 />
               )}
             </div>

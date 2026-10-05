@@ -55,11 +55,14 @@ const envSchema = z.object({
     .default("lax"),
   // Phase 6: AI Rubric Engine Configuration
   AI_PRIMARY_PROVIDER: z
-    .enum(["gemini", "groq", "mock"])
+    .enum(["gemini", "groq", "openrouter", "mock"])
     .default("gemini"),
   AI_FALLBACK_PROVIDER: z
-    .enum(["gemini", "groq", "mock", "none"])
+    .enum(["gemini", "groq", "openrouter", "mock", "none"])
     .default("groq"),
+  AI_PROVIDER_CHAIN: z
+    .string()
+    .default("gemini,groq,openrouter"),
   GEMINI_API_KEY: z
     .string()
     .optional()
@@ -74,6 +77,16 @@ const envSchema = z.object({
   GROQ_MODEL: z
     .string()
     .default("qwen/qwen3.8-27b"),
+  OPENROUTER_API_KEY: z
+    .string()
+    .optional()
+    .default(""),
+  OPENROUTER_MODEL: z
+    .string()
+    .default("google/gemini-2.5-flash"),
+  OPENROUTER_VISION_MODEL: z
+    .string()
+    .default("google/gemini-2.5-flash"),
   AI_REQUEST_TIMEOUT_MS: z
     .string()
     .default("20000")
@@ -206,12 +219,16 @@ function validateEnv(): EnvConfig {
       JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
       COOKIE_SECURE: process.env.COOKIE_SECURE === "true" || process.env.NODE_ENV === "production",
       COOKIE_SAME_SITE: (process.env.COOKIE_SAME_SITE as "lax" | "strict" | "none") || "lax",
-      AI_PRIMARY_PROVIDER: (process.env.AI_PRIMARY_PROVIDER as "gemini" | "groq" | "mock") || "gemini",
-      AI_FALLBACK_PROVIDER: (process.env.AI_FALLBACK_PROVIDER as "gemini" | "groq" | "mock" | "none") || "groq",
+      AI_PRIMARY_PROVIDER: (process.env.AI_PRIMARY_PROVIDER as "gemini" | "groq" | "openrouter" | "mock") || "gemini",
+      AI_FALLBACK_PROVIDER: (process.env.AI_FALLBACK_PROVIDER as "gemini" | "groq" | "openrouter" | "mock" | "none") || "groq",
+      AI_PROVIDER_CHAIN: process.env.AI_PROVIDER_CHAIN || "gemini,groq,openrouter",
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
       GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-2.5-flash",
       GROQ_API_KEY: process.env.GROQ_API_KEY || "",
       GROQ_MODEL: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
+      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+      OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
+      OPENROUTER_VISION_MODEL: process.env.OPENROUTER_VISION_MODEL || "google/gemini-2.5-flash",
       AI_REQUEST_TIMEOUT_MS: parseInt(process.env.AI_REQUEST_TIMEOUT_MS || "20000", 10),
       RUBRIC_PROMPT_VERSION: process.env.RUBRIC_PROMPT_VERSION || "rubric-analysis-v1",
       GEMINI_VISION_MODEL: process.env.GEMINI_VISION_MODEL || "gemini-2.5-flash",

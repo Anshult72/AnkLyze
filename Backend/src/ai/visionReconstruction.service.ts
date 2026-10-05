@@ -13,6 +13,7 @@
 import { IAIProvider } from './providers/aiProvider.interface';
 import { GeminiProvider } from './providers/geminiProvider';
 import { GroqProvider } from './providers/groqProvider';
+import { OpenRouterProvider } from './providers/openRouterProvider';
 import { MockAIProvider } from './providers/mockProvider';
 import { AIProviderError } from './types';
 import {
@@ -50,6 +51,18 @@ export class VisionReconstructionService {
           providerName: 'mock',
           model: 'mock-vision-v1',
         });
+      } else if (config.AI_PRIMARY_PROVIDER === 'groq') {
+        this.primaryProvider = new GroqProvider(
+          config.GROQ_API_KEY,
+          config.GROQ_MODEL,
+          config.GROQ_VISION_MODEL
+        );
+      } else if (config.AI_PRIMARY_PROVIDER === 'openrouter') {
+        this.primaryProvider = new OpenRouterProvider(
+          config.OPENROUTER_API_KEY,
+          config.OPENROUTER_MODEL,
+          config.OPENROUTER_VISION_MODEL
+        );
       } else {
         this.primaryProvider = new GeminiProvider(
           config.GEMINI_API_KEY,
@@ -63,6 +76,18 @@ export class VisionReconstructionService {
           config.GROQ_API_KEY,
           config.GROQ_MODEL,
           config.GROQ_VISION_MODEL
+        );
+      } else if (config.AI_FALLBACK_PROVIDER === 'openrouter') {
+        this.fallbackProvider = new OpenRouterProvider(
+          config.OPENROUTER_API_KEY,
+          config.OPENROUTER_MODEL,
+          config.OPENROUTER_VISION_MODEL
+        );
+      } else if (config.AI_FALLBACK_PROVIDER === 'gemini') {
+        this.fallbackProvider = new GeminiProvider(
+          config.GEMINI_API_KEY,
+          config.GEMINI_MODEL,
+          config.GEMINI_VISION_MODEL
         );
       } else if (config.AI_FALLBACK_PROVIDER === 'mock') {
         this.fallbackProvider = new MockAIProvider({
