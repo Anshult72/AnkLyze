@@ -181,7 +181,7 @@ async function runTests() {
   const invalidAiOutput = '{"invalidJsonStructure": true}';
   const validationFailure = validateAndNormalizeAiResponse(invalidAiOutput, sampleInput, {
     provider: 'gemini',
-    model: 'gemini-1.5-flash',
+    model: 'gemini-3.8-flash',
     promptVersion: 'rubric-analysis-v1',
     fallbackUsed: false,
     processingDurationMs: 120,
@@ -218,7 +218,7 @@ async function runTests() {
 
   const geminiNormalization = validateAndNormalizeAiResponse(validGeminiOutput, sampleInput, {
     provider: 'gemini',
-    model: 'gemini-1.5-flash',
+    model: 'gemini-3.8-flash',
     promptVersion: 'rubric-analysis-v1',
     fallbackUsed: false,
     processingDurationMs: 140,
@@ -407,7 +407,7 @@ async function runTests() {
     version: 2,
     overallStatus: 'READY_FOR_REVIEW',
     provider: 'gemini',
-    model: 'gemini-1.5-flash',
+    model: 'gemini-3.8-flash',
     promptVersion: 'rubric-analysis-v1',
     confidence: 0.96,
     confidenceBand: 'HIGH',
@@ -470,7 +470,7 @@ async function runTests() {
 
   const ambNormalized = validateAndNormalizeAiResponse(ambiguityOutput, sampleInput, {
     provider: 'gemini',
-    model: 'gemini-1.5-flash',
+    model: 'gemini-3.8-flash',
     promptVersion: 'rubric-analysis-v1',
     fallbackUsed: false,
     processingDurationMs: 110,
@@ -513,7 +513,7 @@ async function runTests() {
 
   const incompleteNormalized = validateAndNormalizeAiResponse(incompleteOutput, sampleInput, {
     provider: 'gemini',
-    model: 'gemini-1.5-flash',
+    model: 'gemini-3.8-flash',
     promptVersion: 'rubric-analysis-v1',
     fallbackUsed: false,
     processingDurationMs: 95,

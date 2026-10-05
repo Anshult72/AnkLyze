@@ -53,6 +53,7 @@ export class EvaluationController {
 
       const evaluation = await this.evaluationService.evaluateQuestionAttempt(attemptId, {
         forceRefresh: parseResult.data.forceRefresh,
+        forceProvider: parseResult.data.provider,
         userId: user?.id,
         ipAddress: req.ip || req.socket.remoteAddress,
         userAgent: req.headers['user-agent'],
@@ -122,8 +123,10 @@ export class EvaluationController {
       const attemptId = getParam(req, 'id');
       const user = (req as any).user;
 
+      const requestedProvider = (req.body?.provider || req.query?.provider) as string | undefined;
       const evaluation = await this.evaluationService.evaluateQuestionAttempt(attemptId, {
         forceRefresh: true,
+        forceProvider: requestedProvider,
         userId: user?.id,
         ipAddress: req.ip || req.socket.remoteAddress,
         userAgent: req.headers['user-agent'],

@@ -446,7 +446,7 @@ export default function ScriptDetailPage({
                       Pipeline: {recon?.pipelineVersion || "reconstruct-pipeline-v1"}
                     </span>
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                      Model: {recon?.model || "gemini-1.5-flash"}
+                      Model: {recon?.model || "gemini-3.8-flash"}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">

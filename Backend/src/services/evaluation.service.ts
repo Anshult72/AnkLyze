@@ -43,6 +43,7 @@ import { logger } from '../utils/logger';
 
 export interface EvaluationExecutionOptions {
   forceRefresh?: boolean;
+  forceProvider?: string;
   userId?: string;
   ipAddress?: string;
   userAgent?: string;
@@ -398,11 +399,20 @@ export class EvaluationService {
     }
 
     // Iterate through provider chain (Gemini -> Groq -> OpenRouter)
+    let providersToTry = this.providerChain;
+    if (options.forceProvider) {
+      const target = this.providerChain.find(
+        (p) => p.providerName.toLowerCase() === options.forceProvider?.toLowerCase()
+      );
+      if (target) {
+        providersToTry = [target, ...this.providerChain.filter((p) => p !== target)];
+      }
+    }
     const attemptedErrors: Array<{ provider: string; model: string; error: string }> = [];
     let successfulProvider: IAIProvider | null = null;
 
-    for (let i = 0; i < this.providerChain.length; i++) {
-      const currentProvider = this.providerChain[i];
+    for (let i = 0; i < providersToTry.length; i++) {
+      const currentProvider = providersToTry[i];
       if (!currentProvider || !currentProvider.evaluateAnswer) continue;
 
       try {
@@ -411,7 +421,7 @@ export class EvaluationService {
             provider: currentProvider.providerName,
             model: currentProvider.model,
             attemptIndex: i + 1,
-            totalInChain: this.providerChain.length,
+            totalInChain: providersToTry.length,
           },
           'ANKLYZE Phase 10: Attempting AI evaluation provider in chain'
         );

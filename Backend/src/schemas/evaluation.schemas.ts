@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 export const evaluateAttemptBodySchema = z.object({
   forceRefresh: z.boolean().optional().default(false),
+  provider: z.string().optional(),
 });
 
 export const examinerDecisionBodySchema = z.object({
