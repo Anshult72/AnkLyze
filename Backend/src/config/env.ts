@@ -69,7 +69,7 @@ const envSchema = z.object({
     .default(""),
   GEMINI_MODEL: z
     .string()
-    .default("gemini-2.5-flash"),
+    .default("gemini-1.5-flash"),
   GROQ_API_KEY: z
     .string()
     .optional()
@@ -100,7 +100,7 @@ const envSchema = z.object({
   // Phase 9 & 10: Multimodal AI Configuration
   GEMINI_VISION_MODEL: z
     .string()
-    .default("gemini-2.5-flash"),
+    .default("gemini-1.5-flash"),
   GROQ_VISION_MODEL: z
     .string()
     .default("qwen/qwen3.8-27b"),
@@ -223,7 +223,7 @@ function validateEnv(): EnvConfig {
       AI_FALLBACK_PROVIDER: (process.env.AI_FALLBACK_PROVIDER as "gemini" | "groq" | "openrouter" | "mock" | "none") || "groq",
       AI_PROVIDER_CHAIN: process.env.AI_PROVIDER_CHAIN || "gemini,groq,openrouter",
       GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
-      GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-1.5-flash",
       GROQ_API_KEY: process.env.GROQ_API_KEY || "",
       GROQ_MODEL: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
       OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
@@ -231,7 +231,7 @@ function validateEnv(): EnvConfig {
       OPENROUTER_VISION_MODEL: process.env.OPENROUTER_VISION_MODEL || "google/gemini-2.5-flash",
       AI_REQUEST_TIMEOUT_MS: parseInt(process.env.AI_REQUEST_TIMEOUT_MS || "20000", 10),
       RUBRIC_PROMPT_VERSION: process.env.RUBRIC_PROMPT_VERSION || "rubric-analysis-v1",
-      GEMINI_VISION_MODEL: process.env.GEMINI_VISION_MODEL || "gemini-2.5-flash",
+      GEMINI_VISION_MODEL: process.env.GEMINI_VISION_MODEL || "gemini-1.5-flash",
       GROQ_VISION_MODEL: process.env.GROQ_VISION_MODEL || "qwen/qwen3.8-27b",
       RECONSTRUCTION_PROMPT_VERSION: process.env.RECONSTRUCTION_PROMPT_VERSION || "reconstruct-v1",
       RECONSTRUCTION_PIPELINE_VERSION: process.env.RECONSTRUCTION_PIPELINE_VERSION || "reconstruct-pipeline-v1",

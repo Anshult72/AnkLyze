@@ -10,10 +10,10 @@ export class GeminiProvider implements IAIProvider {
 
   constructor(apiKey?: string, model?: string, visionModel?: string) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY || '';
-    const rawModel = model || process.env.GEMINI_MODEL || 'gemini-flash-latest';
-    this.model = rawModel === 'gemini-2.5-flash' ? 'gemini-flash-latest' : rawModel;
-    const rawVision = visionModel || process.env.GEMINI_VISION_MODEL || 'gemini-flash-latest';
-    this.visionModel = rawVision === 'gemini-2.5-flash' ? 'gemini-flash-latest' : rawVision;
+    const rawModel = model || process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    this.model = (rawModel === 'gemini-2.5-flash' || rawModel === 'gemini-flash-latest') ? 'gemini-1.5-flash' : rawModel;
+    const rawVision = visionModel || process.env.GEMINI_VISION_MODEL || 'gemini-1.5-flash';
+    this.visionModel = (rawVision === 'gemini-2.5-flash' || rawVision === 'gemini-flash-latest') ? 'gemini-1.5-flash' : rawVision;
   }
 
   async generateRubricAnalysis(

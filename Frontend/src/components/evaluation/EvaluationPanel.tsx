@@ -105,6 +105,12 @@ export default function EvaluationPanel({
 
   const markInputRef = useRef<HTMLInputElement>(null);
 
+  const isAiUnavailable =
+    Boolean(question.requiresReview) ||
+    question.evaluationStatus === "REQUIRES_REVIEW" ||
+    question.aiModel === "failed-validation" ||
+    (question.aiSuggestedMarks === 0 && question.aiConfidence === 0);
+
   // Sync internal input value when examinerMarks prop updates
   useEffect(() => {
     const timer = window.setTimeout(() => setInputVal(examinerMarks.toString()), 0);
@@ -339,15 +345,19 @@ export default function EvaluationPanel({
         {/* ========================================================================= */}
         {/* 2. AI EVALUATION SUGGESTION (Advisory only) */}
         {/* ========================================================================= */}
-        <section className="p-4 sm:p-5 bg-slate-50/70 space-y-2.5">
+        <section className={`p-4 sm:p-5 space-y-2.5 ${isAiUnavailable ? "bg-amber-50/60 border-b border-amber-200/80" : "bg-slate-50/70"}`}>
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <div className="flex items-center space-x-2">
                 <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
                   AI Suggested Marks
                 </h3>
-                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                  Advisory Only
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                  isAiUnavailable
+                    ? "bg-amber-100 text-amber-900 border-amber-300 font-bold"
+                    : "bg-blue-50 text-blue-700 border-blue-200"
+                }`}>
+                  {isAiUnavailable ? "Review Required" : "Advisory Only"}
                 </span>
                 {question.aiProvider && (
                   <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-mono">
@@ -356,9 +366,11 @@ export default function EvaluationPanel({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-mono">
-                <span>Confidence: <strong className="text-slate-800 font-bold">{question.aiConfidence}%</strong></span>
+                <span>Confidence: <strong className="text-slate-800 font-bold">{isAiUnavailable ? "N/A" : `${question.aiConfidence}%`}</strong></span>
                 <span>•</span>
-                <span>Status: <strong className="text-emerald-700 font-bold">Suggestion Ready</strong></span>
+                <span>Status: <strong className={isAiUnavailable ? "text-amber-800 font-bold" : "text-emerald-700 font-bold"}>
+                  {isAiUnavailable ? "Examiner Review Required" : "Suggestion Ready"}
+                </strong></span>
                 {question.aiModel && (
                   <>
                     <span>•</span>
@@ -384,19 +396,32 @@ export default function EvaluationPanel({
                   <span className="hidden sm:inline">{isEvaluating ? "Evaluating..." : "Evaluate with AI"}</span>
                 </button>
               )}
-              <div className="flex items-baseline space-x-1 font-mono text-right shrink-0">
-                <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 tracking-tight font-serif">
-                  {question.aiSuggestedMarks}
-                </span>
-                <span className="text-sm font-semibold text-slate-500">
-                  / {question.maxMarks}
-                </span>
-              </div>
+              {isAiUnavailable ? (
+                <div className="text-right">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                    Review Required
+                  </span>
+                  <div className="text-[10px] text-amber-800 font-mono mt-0.5">
+                    AI evaluation unavailable
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-baseline space-x-1 font-mono text-right shrink-0">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 tracking-tight font-serif">
+                    {question.aiSuggestedMarks}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-500">
+                    / {question.maxMarks}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            Calculated from rubric criteria match &amp; detected working. Examiner holds authoritative marking decision.
+            {isAiUnavailable
+              ? "AI evaluation was unable to produce high-confidence suggestions across configured providers. Human examiner holds sole marking authority."
+              : "Calculated from rubric criteria match & detected working. Examiner holds authoritative marking decision."}
           </p>
         </section>
 
@@ -554,7 +579,11 @@ export default function EvaluationPanel({
           <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
             <div className="p-2.5 bg-white rounded-xl border border-slate-200">
               <span className="text-[10px] text-slate-500 block uppercase">AI Suggestion</span>
-              <strong className="text-sm font-bold text-blue-600">{question.aiSuggestedMarks}</strong>
+              {isAiUnavailable ? (
+                <strong className="text-xs font-bold text-amber-700">N/A</strong>
+              ) : (
+                <strong className="text-sm font-bold text-blue-600">{question.aiSuggestedMarks}</strong>
+              )}
             </div>
             <div className="p-2.5 bg-white rounded-xl border border-slate-200">
               <span className="text-[10px] text-slate-500 block uppercase">Your Award</span>
@@ -562,17 +591,21 @@ export default function EvaluationPanel({
             </div>
             <div className="p-2.5 bg-white rounded-xl border border-slate-200">
               <span className="text-[10px] text-slate-500 block uppercase">Delta</span>
-              <strong
-                className={`text-sm font-bold ${
-                  marksDelta > 0
-                    ? "text-emerald-600"
-                    : marksDelta < 0
-                    ? "text-rose-600"
-                    : "text-slate-600"
-                }`}
-              >
-                {marksDelta > 0 ? `+${marksDelta}` : marksDelta}
-              </strong>
+              {isAiUnavailable ? (
+                <strong className="text-xs font-bold text-slate-500">—</strong>
+              ) : (
+                <strong
+                  className={`text-sm font-bold ${
+                    marksDelta > 0
+                      ? "text-emerald-600"
+                      : marksDelta < 0
+                      ? "text-rose-600"
+                      : "text-slate-600"
+                  }`}
+                >
+                  {marksDelta > 0 ? `+${marksDelta}` : marksDelta}
+                </strong>
+              )}
             </div>
           </div>
         </section>

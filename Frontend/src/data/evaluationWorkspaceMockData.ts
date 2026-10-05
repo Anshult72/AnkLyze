@@ -64,6 +64,8 @@ export interface QuestionData {
   aiModel?: string;
   attemptId?: string;
   evaluationId?: string;
+  evaluationStatus?: string;
+  requiresReview?: boolean;
   riskAssessment?: RiskAssessmentData;
   doubleEvaluationResult?: DoubleEvaluationData;
 }
