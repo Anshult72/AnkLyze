@@ -68,6 +68,15 @@ export class ExamController {
   // Subject Controllers
   // ============================================================================
 
+  public async listAllSubjects(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const subjects = await examService.getAllSubjects();
+      ApiResponse.success(res, subjects);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public async listSubjects(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const examId = getParam(req, "examId");

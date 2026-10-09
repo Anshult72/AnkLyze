@@ -123,6 +123,10 @@ export class ExamService {
   // Subject Services
   // ============================================================================
 
+  public async getAllSubjects() {
+    return examRepository.findAllSubjects();
+  }
+
   public async getSubjectsByExamId(examId: string) {
     await this.getExamById(examId);
     return examRepository.findSubjectsByExamId(examId);

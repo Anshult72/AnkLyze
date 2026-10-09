@@ -93,6 +93,10 @@ export const examRoutes = router;
 
 export const subjectRoutes = Router();
 
+subjectRoutes.get("/", requireAuth, (req, res, next) => {
+  examController.listAllSubjects(req, res, next);
+});
+
 subjectRoutes.get("/:subjectId", requireAuth, (req, res, next) => {
   examController.getSubject(req, res, next);
 });

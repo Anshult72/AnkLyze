@@ -74,6 +74,17 @@ export class ExamRepository {
   // Subject Operations
   // ============================================================================
 
+  public async findAllSubjects() {
+    return prisma.subject.findMany({
+      where: { isArchived: false },
+      orderBy: { code: "asc" },
+      include: {
+        exam: { select: { id: true, title: true, code: true } },
+        _count: { select: { questions: true, markingSchemes: true, assignments: true } },
+      },
+    });
+  }
+
   public async findSubjectsByExamId(examId: string) {
     return prisma.subject.findMany({
       where: { examId, isArchived: false },
