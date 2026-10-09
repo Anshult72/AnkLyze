@@ -128,8 +128,38 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
     );
   }
 
-  const { markingOverview, questions, attentionRisk, workflow, summary, progress, recentActivity } = data;
-  const maxBucketCount = Math.max(...markingOverview.markDistribution.map((b) => b.count), 1);
+  const markingOverview = data.markingOverview || {
+    averageMarks: 0,
+    medianMarks: 0,
+    highestMarks: 0,
+    lowestMarks: 0,
+    maxMarks: 100,
+    totalEvaluatedScripts: 0,
+    totalAssignedScripts: 0,
+    totalQuestionsEvaluated: 0,
+    markDistribution: [],
+  };
+  const questions = data.questions || [];
+  const attentionRisk = data.attentionRisk || {
+    highRiskCount: 0,
+    criticalRiskCount: 0,
+    secondEvaluationCount: 0,
+    moderationCount: 0,
+    flaggedEvaluationsCount: 0,
+    commonReasons: [],
+  };
+  const workflow = data.workflow || {
+    aiAcceptedCount: 0,
+    aiOverriddenCount: 0,
+    aiAcceptanceRate: 100,
+    criteriaChangedCount: 0,
+    sentForReviewCount: 0,
+    totalCompletedSheets: 0,
+  };
+  const summary = data.summary;
+  const progress = data.progress;
+  const recentActivity = data.recentActivity || [];
+  const maxBucketCount = Math.max(...(markingOverview.markDistribution || []).map((b) => b.count), 1);
 
 
   return (
@@ -539,7 +569,7 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
                 High Risk
               </span>
               <span className="text-2xl font-serif text-[#9b564d] font-medium block mt-0.5">
-                {attentionRisk.highRiskCount}
+                {attentionRisk.highRiskCount ?? 0}
               </span>
               <span className="text-[10px] text-[#617579] block">Mark delta &gt; 15%</span>
             </div>
@@ -549,7 +579,7 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
                 Critical
               </span>
               <span className="text-2xl font-serif text-[#9b564d] font-medium block mt-0.5">
-                {attentionRisk.criticalRiskCount}
+                {attentionRisk.criticalRiskCount ?? 0}
               </span>
               <span className="text-[10px] text-[#617579] block">Dual attempt / scan</span>
             </div>
@@ -559,7 +589,7 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
                 Second Eval
               </span>
               <span className="text-2xl font-serif text-[#062834] font-medium block mt-0.5">
-                {attentionRisk.secondEvaluationCount}
+                {attentionRisk.secondEvaluationCount ?? 0}
               </span>
               <span className="text-[10px] text-[#617579] block">Independent round</span>
             </div>
@@ -569,7 +599,7 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
                 Moderation
               </span>
               <span className="text-2xl font-serif text-[#062834] font-medium block mt-0.5">
-                {attentionRisk.moderationCount}
+                {attentionRisk.moderationCount ?? 0}
               </span>
               <span className="text-[10px] text-[#617579] block">Head examiner desk</span>
             </div>
@@ -581,11 +611,11 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
               Most common attention reasons
             </h3>
 
-            {attentionRisk.commonReasons.length === 0 ? (
+            {(!attentionRisk.commonReasons || attentionRisk.commonReasons.length === 0) ? (
               <p className="text-xs text-[#617579] italic py-2">No attention items in the current batch.</p>
             ) : (
               <ul className="space-y-2 text-xs">
-                {attentionRisk.commonReasons.map((item) => (
+                {(attentionRisk.commonReasons || []).map((item) => (
                   <li key={item.reason} className="flex items-center justify-between p-2 rounded-lg bg-[#f8faf9] border border-[#edf4ef]">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#326c74] shrink-0" aria-hidden="true" />
@@ -627,9 +657,9 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-2xl sm:text-3xl font-serif text-[#062834] font-medium">
-                  {workflow.aiAcceptedCount}
+                  {workflow.aiAcceptedCount ?? 0}
                 </span>
-                <span className="text-xs text-[#5b7778] font-mono">({workflow.aiAcceptanceRate}%)</span>
+                <span className="text-xs text-[#5b7778] font-mono">({workflow.aiAcceptanceRate ?? 100}%)</span>
               </div>
               <p className="text-[11px] text-[#617579] mt-0.5">Suggested marks confirmed as accurate</p>
             </div>
@@ -640,10 +670,10 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-2xl sm:text-3xl font-serif text-[#062834] font-medium">
-                  {workflow.aiOverriddenCount}
+                  {workflow.aiOverriddenCount ?? 0}
                 </span>
                 <span className="text-xs text-[#5b7778] font-mono">
-                  ({(100 - workflow.aiAcceptanceRate).toFixed(1)}%)
+                  ({(100 - (workflow.aiAcceptanceRate ?? 100)).toFixed(1)}%)
                 </span>
               </div>
               <p className="text-[11px] text-[#617579] mt-0.5">Examiner adjusted final marks</p>
@@ -655,7 +685,7 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-2xl sm:text-3xl font-serif text-[#062834] font-medium">
-                  {workflow.criteriaChangedCount}
+                  {workflow.criteriaChangedCount ?? 0}
                 </span>
               </div>
               <p className="text-[11px] text-[#617579] mt-0.5">Rubric step weights customized</p>
@@ -667,7 +697,7 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-2xl sm:text-3xl font-serif text-[#062834] font-medium">
-                  {workflow.sentForReviewCount}
+                  {workflow.sentForReviewCount ?? 0}
                 </span>
               </div>
               <p className="text-[11px] text-[#617579] mt-0.5">Escalated to attention queue</p>
@@ -692,8 +722,8 @@ export default function ExaminerReportsView({ data: initialData }: ExaminerRepor
 
       {/* SECTIONS 6 & 7: Workload (Batch Progress) & Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <ProgressSection metrics={progress} />
-        <RecentActivity activities={recentActivity} />
+        {progress && <ProgressSection metrics={progress} />}
+        <RecentActivity activities={recentActivity || []} />
       </div>
 
     </div>

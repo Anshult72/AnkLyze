@@ -1,71 +1,431 @@
-.sidebar{position:fixed;z-index:70;inset:0 auto 0 0;width:296px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding:23px 15px 16px;background:#fffefa;border-right:1px solid #d7e5df;box-shadow:11px 0 34px #06283409;color:#062834}
-.brandRow{display:flex;align-items:center;justify-content:space-between;min-height:70px;padding:0 8px}
-.brand{display:flex;align-items:center;width:210px;height:70px;overflow:hidden}
-.brand img,.mobileBrand img{width:100%;height:auto;object-fit:contain}
-.closeButton{display:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #d6e5df;border-radius:9px;background:#fffefa;color:#062834;cursor:pointer}
-.navigation{display:flex;flex:1;flex-direction:column;gap:14px;margin-top:24px}
-.navGroup{display:flex;flex-direction:column;gap:4px}
-.groupHeading{display:block;padding:8px 14px 4px;color:#789194;font:700 10px/1.2 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
-.navGroup + .navGroup{margin-top:6px;padding-top:10px;border-top:1px solid #edf4f0}
-.navLink{position:relative;display:flex;align-items:center;gap:12px;min-height:50px;padding:0 13px;border:1px solid transparent;border-radius:10px;color:#486167;text-decoration:none;font:600 15px Arial,sans-serif;transition:background-color .18s,color .18s,transform .18s}
-.navLink svg{flex:none;color:#6f9697}
-.navLink:hover{background:#edf5f1;color:#062834;transform:translateX(2px)}
-.navLinkActive{background:#062834;color:white;box-shadow:0 6px 13px #06283422}
-.navLinkActive svg,.navLinkActive:hover{color:white}
-.navLinkActive:hover{background:#123f48}
-.activeMark{position:absolute;right:12px;width:5px;height:5px;border-radius:50%;background:#a4d1c4}
-.sidebarBottom{display:flex;flex-direction:column;gap:9px;margin-top:25px;padding-top:16px;border-top:1px solid #e5eee9}
-.utility{position:relative}
-.accountButton{display:flex;align-items:center;width:100%;min-height:43px;gap:10px;padding:6px 10px;border:1px solid #e0ebe6;border-radius:10px;background:#f6f9f5;color:#36545b;text-align:left;font:600 12px Arial,sans-serif;cursor:pointer;transition:border-color .18s,background-color .18s}
-.accountButton:hover,.utilityButtonOpen{background:#edf5f1;border-color:#bcd9d1}
-.accountButton>svg:last-child{margin-left:auto;flex:none;color:#779195;transition:transform .18s}
-.chevronOpen{transform:rotate(180deg)}
-.utilityPanel{margin:7px 0 0;padding:9px;border:1px solid #dbe9e2;border-radius:10px;background:#fffefa;box-shadow:0 10px 24px #0628340c}
-.utilityPanel p{display:flex;gap:7px;margin:0;padding:8px 1px;border-top:1px solid #edf2ee;color:#52686d;font:11px/1.4 Arial,sans-serif}
-.utilityPanel p span{flex:none;color:#78a8a2;font:700 10px Arial,sans-serif}
-.avatar{display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:9px;background:#468189;color:#fff;font:700 13px Arial,sans-serif}
-.accountText{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}
-.accountText strong{overflow:hidden;color:#062834;text-overflow:ellipsis;white-space:nowrap;font:700 13px Arial,sans-serif}
-.accountText small{overflow:hidden;color:#789194;text-overflow:ellipsis;white-space:nowrap;font:700 9px Arial,sans-serif;letter-spacing:.06em}
-.utilityPanel .accountDetail{align-items:flex-start;overflow-wrap:anywhere}
-.accountDetail svg{flex:none;color:#468189}
-.logoutButton{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;margin-top:4px;padding:0 8px;border:0;border-radius:7px;background:#f8ece9;color:#9a493c;text-align:left;font:700 11px Arial,sans-serif;cursor:pointer}
-.logoutButton:hover{background:#f2dfd9}
-.mobileBar{display:none}
-.backdrop{display:none}
-.sidebar :is(a,button):focus-visible,.mobileBar :is(a,button):focus-visible{outline:3px solid #77aca2;outline-offset:3px}
+/* ANKLYZE macOS-Inspired Floating Bottom Navigation Dock */
 
-.compactLogo{display:none}
-.navLabel{white-space:nowrap}
-@media(min-width:1280px){
-  .sidebar{width:88px;padding:23px 14px 16px;transition:width .24s ease,box-shadow .24s ease}
-  .sidebar:is(:hover,:has(:focus-visible)){width:296px;box-shadow:14px 0 36px #06283419}
-  .brandRow{padding:0;position:relative;justify-content:flex-start}
-  .brand{position:relative;width:100%;height:70px}
-  .brand .compactLogo{display:block;width:48px;height:48px;position:absolute;left:5px;object-fit:contain}
-  .brand .fullLogo{position:absolute;left:10px;width:210px;max-width:none;opacity:0;visibility:hidden;transition:opacity .18s ease}
-  .sidebar:is(:hover,:has(:focus-visible)) .compactLogo{display:none}
-  .sidebar:is(:hover,:has(:focus-visible)) .fullLogo{opacity:1;visibility:visible}
-  .navLink{padding:0 17px;gap:14px;overflow:hidden}
-  .navLabel,.accountText,.accountButton>svg,.groupHeading{opacity:0;visibility:hidden;transition:opacity .16s ease;flex-shrink:0}
-  .sidebar:not(:hover):not(:has(:focus-visible)) .groupHeading{height:0;padding:0;margin:0;overflow:hidden}
-  .activeMark{display:none}
-  .sidebar:is(:hover,:has(:focus-visible)) :is(.navLabel,.accountText,.accountButton>svg,.groupHeading){opacity:1;visibility:visible;height:auto}
-  .sidebar:is(:hover,:has(:focus-visible)) .activeMark{display:block}
-  .accountButton{padding:7px 13px;gap:12px;overflow:hidden}
-  .accountText{width:174px;flex-shrink:1}
-  .sidebar:not(:hover):not(:has(:focus-visible)) .utilityPanel{display:none}
+.dockWrapper {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  max-width: calc(100vw - 32px);
+  pointer-events: none;
 }
 
-@media(max-width:1279px){
-  .sidebar{width:min(310px,calc(100vw - 44px));transform:translateX(-105%);transition:transform .25s ease;box-shadow:18px 0 50px #06283424}
-  .sidebarOpen{transform:translateX(0)}
-  .closeButton{display:flex}
-  .backdrop{position:fixed;z-index:60;inset:0;display:block;width:100%;border:0;background:#061e27a1;cursor:pointer}
-  .mobileBar{position:sticky;z-index:50;top:0;display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 18px;border-bottom:1px solid #d7e5df;background:#fffefaee;backdrop-filter:blur(16px)}
-  .menuButton{display:grid;place-items:center;width:39px;height:39px;border:1px solid #d7e5df;border-radius:9px;background:#fffefa;color:#062834;cursor:pointer}
-  .mobileBrand{display:flex;align-items:center;width:128px;height:43px;overflow:hidden}
-  .mobileRole{margin-left:auto;color:#468189;font:700 10px Arial,sans-serif;letter-spacing:.15em}
+.dockBar {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  background: rgba(255, 254, 250, 0.94);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(215, 229, 223, 0.95);
+  border-radius: 20px;
+  box-shadow:
+    0 16px 36px -4px rgba(6, 40, 52, 0.14),
+    0 4px 12px rgba(6, 40, 52, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-@media(max-width:480px){.mobileBar{padding:8px 13px}.mobileRole{font-size:9px}}
-@media(prefers-reduced-motion:reduce){.sidebar,.navLink{transition:none}}
+
+.dockBar::-webkit-scrollbar {
+  display: none;
+}
+
+.groupWrapper {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.groupItems {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.dockSeparator {
+  width: 1px;
+  height: 24px;
+  background: #d7e5df;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.dockItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 5px 8px 4px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: #486167;
+  text-decoration: none;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0.2, 1), background-color 0.18s ease, color 0.18s ease;
+}
+
+.dockItem:hover {
+  transform: translateY(-2px);
+  background: #edf5f1;
+  color: #062834;
+}
+
+.dockItem:hover .iconWrapper {
+  transform: scale(1.08);
+  color: #062834;
+}
+
+.dockItemActive {
+  background: #062834;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(6, 40, 52, 0.18);
+}
+
+.dockItemActive .iconWrapper {
+  color: #ffffff;
+}
+
+.dockItemActive .shortLabel {
+  color: #e2efeb;
+  font-weight: 700;
+}
+
+.dockItemActive:hover {
+  background: #123f48;
+  color: #ffffff;
+}
+
+.dockItem:focus-visible {
+  outline: 3px solid #77aca2;
+  outline-offset: 2px;
+}
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: #6f9697;
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0.2, 1), color 0.18s ease;
+}
+
+.shortLabel {
+  font-family: Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  line-height: 1.2;
+  margin-top: 2px;
+  color: inherit;
+  transition: color 0.18s ease;
+}
+
+.activeDot {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #77aca2;
+  box-shadow: 0 0 4px #77aca2;
+}
+
+/* Polished macOS-style tooltip */
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: 4px 9px;
+  background: #062834;
+  color: #fffefa;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  border-radius: 7px;
+  box-shadow: 0 6px 16px rgba(6, 40, 52, 0.24);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+  z-index: 100;
+}
+
+.tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 4px;
+  border-style: solid;
+  border-color: #062834 transparent transparent transparent;
+}
+
+.dockItem:is(:hover, :focus-visible) .tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Profile / Account dock button */
+.accountItemWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.accountTrigger {
+  border: 1px solid transparent;
+}
+
+.avatarWrapper {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #468189;
+  color: #ffffff;
+  transition: transform 0.18s ease;
+}
+
+.dockItem:hover .avatarWrapper {
+  transform: scale(1.08);
+}
+
+.dockItemActive .avatarWrapper {
+  background: #77aca2;
+  color: #062834;
+}
+
+.avatarText {
+  font-family: Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Account Popover above dock */
+.accountPopover {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  right: 0;
+  width: 260px;
+  padding: 12px;
+  background: #fffefa;
+  border: 1px solid #d7e5df;
+  border-radius: 14px;
+  box-shadow: 0 16px 36px rgba(6, 40, 52, 0.16);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: popoverFadeIn 0.18s ease;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.popoverHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 2px 4px;
+}
+
+.popoverAvatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 8px;
+  background: #468189;
+  color: #ffffff;
+  font: 700 12px Arial, sans-serif;
+}
+
+.popoverUserInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.popoverName {
+  color: #062834;
+  font: 700 12px Arial, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popoverRoleBadge {
+  display: inline-block;
+  color: #468189;
+  font: 700 9px Arial, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.popoverDivider {
+  height: 1px;
+  background: #edf4f0;
+  margin: 1px 0;
+}
+
+.popoverDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 2px;
+}
+
+.popoverDetailRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #52686d;
+  font: 11px/1.3 Arial, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popoverDetailIcon {
+  flex: none;
+  color: #468189;
+}
+
+.logoutButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  margin-top: 2px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #f8ece9;
+  color: #9a493c;
+  font: 700 11px Arial, sans-serif;
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.logoutButton:hover {
+  background: #f2dfd9;
+}
+
+.logoutButton:focus-visible {
+  outline: 3px solid #9a493c;
+  outline-offset: 2px;
+}
+
+/* Responsive Adaptive Adjustments */
+@media (max-width: 768px) {
+  .dockWrapper {
+    bottom: max(14px, env(safe-area-inset-bottom, 14px));
+    max-width: calc(100vw - 20px);
+  }
+  .dockBar {
+    padding: 5px 6px;
+    gap: 2px;
+  }
+  .groupWrapper,
+  .groupItems {
+    gap: 2px;
+  }
+  .dockItem {
+    min-width: 48px;
+    padding: 4px 6px 3px;
+  }
+  .shortLabel {
+    font-size: 9.5px;
+  }
+  .iconWrapper {
+    width: 20px;
+    height: 20px;
+  }
+  .dockSeparator {
+    height: 20px;
+    margin: 0 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dockWrapper {
+    bottom: max(10px, env(safe-area-inset-bottom, 10px));
+    max-width: calc(100vw - 16px);
+  }
+  .dockBar {
+    padding: 4px 5px;
+  }
+  .dockItem {
+    min-width: 44px;
+    padding: 3px 5px 3px;
+  }
+  .shortLabel {
+    font-size: 9px;
+  }
+  .iconWrapper {
+    width: 19px;
+    height: 19px;
+  }
+  .accountPopover {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 240px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dockItem,
+  .iconWrapper,
+  .avatarWrapper,
+  .tooltip,
+  .accountPopover {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@media print {
+  .dockWrapper {
+    display: none !important;
+  }
+}

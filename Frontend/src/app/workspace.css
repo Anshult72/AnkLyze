@@ -8,8 +8,11 @@
   color: var(--desk-ink);
 }
 
-@media (min-width: 1280px) {
-  .workspace-shell:has(> .portal-sidebar) { padding-left: 88px; }
+/* Dock layout: remove legacy sidebar left-padding and reserve bottom clearance */
+.workspace-shell:has(> .portal-dock),
+.workspace-shell:has(.portal-dock) {
+  padding-left: 0 !important;
+  padding-bottom: clamp(84px, 10vh, 108px);
 }
 
 .workspace-review-header {

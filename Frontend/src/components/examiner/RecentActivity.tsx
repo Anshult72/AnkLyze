@@ -5,10 +5,11 @@ import Link from "next/link";
 import { RecentActivityItem } from "@/data/examinerMockData";
 
 interface RecentActivityProps {
-  activities: RecentActivityItem[];
+  activities?: RecentActivityItem[];
 }
 
-export default function RecentActivity({ activities }: RecentActivityProps) {
+export default function RecentActivity({ activities = [] }: RecentActivityProps) {
+  const safeActivities = activities || [];
   return (
     <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs p-5 sm:p-6">
       
@@ -26,11 +27,11 @@ export default function RecentActivity({ activities }: RecentActivityProps) {
 
       {/* Activity Timeline List */}
       <div className="flow-root">
-        {activities.length === 0 ? (
+        {safeActivities.length === 0 ? (
           <p className="text-xs text-slate-500 py-3 italic">No recent activity recorded for this session.</p>
         ) : (
           <ul role="list" className="-mb-2">
-            {activities.map((item) => {
+            {safeActivities.map((item) => {
               const content = (
                 <div className="min-w-0 flex-1 flex justify-between space-x-2 text-xs">
                   <div>
