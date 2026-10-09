@@ -311,9 +311,11 @@ export default function TopNavigation({ activeTab = "dashboard" }: TopNavigation
             aria-expanded={profileOpen}
             aria-haspopup="dialog"
           >
-            <span className={styles.tooltip} role="tooltip">
-              {displayName} ({roleLabel})
-            </span>
+            {!profileOpen && (
+              <span className={styles.tooltip} role="tooltip">
+                {displayName} ({roleLabel})
+              </span>
+            )}
             <div className={styles.avatarWrapper}>
               <span className={styles.avatarText}>{initials || "EX"}</span>
             </div>
@@ -359,7 +361,7 @@ export default function TopNavigation({ activeTab = "dashboard" }: TopNavigation
                 }}
               >
                 <LogOut size={15} />
-                <span>Lock &amp; Exit Session</span>
+                <span>Logout</span>
               </button>
             </div>
           )}

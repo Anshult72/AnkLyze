@@ -31,8 +31,7 @@
     0 4px 12px rgba(6, 40, 52, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -230,19 +229,42 @@
 /* Account Popover above dock */
 .accountPopover {
   position: absolute;
-  bottom: calc(100% + 14px);
+  bottom: calc(100% + 12px);
   right: 0;
-  width: 260px;
+  width: 250px;
   padding: 12px;
-  background: #fffefa;
+  background: rgba(255, 254, 250, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid #d7e5df;
   border-radius: 14px;
-  box-shadow: 0 16px 36px rgba(6, 40, 52, 0.16);
-  z-index: 100;
+  box-shadow: 0 16px 36px rgba(6, 40, 52, 0.16), 0 4px 12px rgba(6, 40, 52, 0.08);
+  z-index: 200;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  animation: popoverFadeIn 0.18s ease;
+  pointer-events: auto;
+  animation: popoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.accountPopover::before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 20px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: #d7e5df transparent transparent transparent;
+}
+
+.accountPopover::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 21px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #fffefa transparent transparent transparent;
 }
 
 @keyframes popoverFadeIn {
@@ -406,10 +428,8 @@
     height: 19px;
   }
   .accountPopover {
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 240px;
+    right: 0;
+    width: 230px;
   }
 }
 
