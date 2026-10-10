@@ -68,7 +68,7 @@ export class ExamController {
   // Subject Controllers
   // ============================================================================
 
-  public async listAllSubjects(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public async listAllSubjects(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const subjects = await examService.getAllSubjects();
       ApiResponse.success(res, subjects);
